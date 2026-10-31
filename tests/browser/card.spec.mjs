@@ -447,6 +447,92 @@ test('editing and reordering statistics retains templates, attributes, and short
   expect(edited.shortcuts.length).toBe(5);
 });
 
+for (const field of [
+  {
+    name: 'Reading sensor',
+    role: 'combobox',
+    value: 'sensor.zhimi_airp_vb4_pm2_5',
+    read: (config) => config.aqi.entity_id,
+  },
+  {
+    name: 'Reading unit or label',
+    role: 'textbox',
+    value: 'PM 2.5 concentration',
+    read: (config) => config.aqi.unit,
+  },
+  {
+    name: 'Statistic sensor 1',
+    role: 'combobox',
+    value: 'sensor.zhimi_airp_vb4_motor_speed',
+    read: (config) => config.stats[0].entity_id,
+  },
+  {
+    name: 'Label 1',
+    role: 'textbox',
+    value: 'Living room motor speed',
+    read: (config) => config.stats[0].subtitle,
+  },
+  {
+    name: 'Unit 1',
+    role: 'textbox',
+    value: 'revolutions/min',
+    read: (config) => config.stats[0].unit,
+  },
+  {
+    name: 'Statistic sensor 5',
+    role: 'combobox',
+    value: 'sensor.zhimi_airp_vb4_pm10',
+    read: (config) => config.stats[4].entity_id,
+    emptyStat: true,
+  },
+])
+  test(`keeps ${field.name} typing intact during HA refreshes and config echoes`, async ({
+    page,
+  }) => {
+    await page.evaluate(async (emptyStat) => {
+      const editor = await customElements
+        .get('xiaomi-purifier-card')
+        .getConfigElement();
+      window.editorConfig = structuredClone(window.configs[0]);
+      if (emptyStat) window.editorConfig.stats.push({});
+      editor.hass = window.hass;
+      editor.setConfig(window.editorConfig);
+      editor.addEventListener('config-changed', (event) => {
+        window.editorConfig = event.detail.config;
+        editor.setConfig(structuredClone(window.editorConfig));
+      });
+      document.body.append(editor);
+      window.editorRefreshes = 0;
+      window.editorRefresh = setInterval(() => {
+        window.editorRefreshes++;
+        window.hass = { ...window.hass, states: { ...window.hass.states } };
+        editor.hass = window.hass;
+        editor.setConfig(structuredClone(window.editorConfig));
+      }, 20);
+    }, !!field.emptyStat);
+    const editor = page.locator('xiaomi-purifier-card-editor');
+    const input = editor.getByRole(field.role, {
+      name: field.name,
+      exact: true,
+    });
+    await input.fill('');
+    await input.pressSequentially(field.value, { delay: 30 });
+    await expect(input).toHaveValue(field.value);
+    await expect(input).toBeFocused();
+    expect(await input.evaluate((element) => element.selectionStart)).toBe(
+      field.value.length,
+    );
+    expect(await page.evaluate(() => window.editorRefreshes)).toBeGreaterThan(
+      2,
+    );
+    await input.press('Tab');
+    expect(field.read(await page.evaluate(() => window.editorConfig))).toBe(
+      field.value,
+    );
+    await page.evaluate(() => clearInterval(window.editorRefresh));
+    await expect(input).toHaveValue(field.value);
+  });
+
 for (const width of [320, 768, 1280])
   test(`fits a ${width}px viewport without horizontal overflow`, async ({
     page,

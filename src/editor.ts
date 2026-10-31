@@ -71,6 +71,8 @@ export class PurifierCardEditor extends LitElement {
     this.change('stats', stats);
   }
   private renderStat(stat: PurifierCardStat, index: number) {
+    // Text fields commit on change. Normal bindings preserve in-progress typing
+    // when HA refreshes hass or echoes an unchanged configuration.
     const number = index + 1;
     return html`<fieldset class="stat-editor">
       <legend>${this.text('statistic')} ${number}</legend>
@@ -80,7 +82,7 @@ export class PurifierCardEditor extends LitElement {
           type="text"
           list="reading-entities"
           aria-label=${`${this.text('stat_entity')} ${number}`}
-          .value=${live(stat.entity_id ?? '')}
+          .value=${stat.entity_id ?? ''}
           placeholder=${stat.attribute ? `${this.text('fan_attribute')}: ${stat.attribute}` : 'sensor.example'}
           @change=${(event: Event) => this.sourceInput(event, (id) => this.changeStatSource(index, id))}
       /></label>
@@ -90,7 +92,7 @@ export class PurifierCardEditor extends LitElement {
           ><input
             type="text"
             aria-label=${`${this.text('stat_label')} ${number}`}
-            .value=${live(stat.subtitle ?? '')}
+            .value=${stat.subtitle ?? ''}
             @change=${(event: Event) => this.changeStat(index, { subtitle: (event.target as HTMLInputElement).value })}
         /></label>
         <label class="field"
@@ -98,7 +100,7 @@ export class PurifierCardEditor extends LitElement {
           ><input
             type="text"
             aria-label=${`${this.text('stat_unit')} ${number}`}
-            .value=${live(stat.unit ?? '')}
+            .value=${stat.unit ?? ''}
             placeholder=${this.hass?.states[stat.entity_id ?? '']?.attributes.unit_of_measurement ?? ''}
             @change=${(event: Event) => this.changeStat(index, { unit: (event.target as HTMLInputElement).value })}
         /></label>
@@ -172,7 +174,7 @@ export class PurifierCardEditor extends LitElement {
             type="text"
             list="reading-entities"
             aria-label=${this.text('reading_entity')}
-            .value=${live(this.config.aqi?.entity_id ?? '')}
+            .value=${this.config.aqi?.entity_id ?? ''}
             placeholder=${this.config.aqi?.attribute ? `${this.text('fan_attribute')}: ${this.config.aqi.attribute}` : this.text('reading_placeholder')}
             @change=${(event: Event) => this.sourceInput(event, (id) => this.changeReading(id))}
         /></label>
@@ -181,7 +183,7 @@ export class PurifierCardEditor extends LitElement {
           ><input
             type="text"
             aria-label=${this.text('reading_unit')}
-            .value=${live(this.config.aqi?.unit ?? '')}
+            .value=${this.config.aqi?.unit ?? ''}
             placeholder=${this.hass?.states[this.config.aqi?.entity_id ?? '']?.attributes.unit_of_measurement ?? ''}
             @change=${(event: Event) => this.change('aqi', { ...this.config.aqi, unit: (event.target as HTMLInputElement).value })}
         /></label>

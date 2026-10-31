@@ -1,13 +1,9 @@
-Fixes the 4 Pro slider mismatch and adds visual configuration for readings and statistics.
+Fixes editor text being overwritten or cleared while typing.
 
-- Fixed the real 4 Pro `percentage_step: 33.333333333333336` case, where a native fractional range could place a reported 100% value at roughly two-thirds. The slider now uses integer positions and converts them to HA percentages.
-- Reconciles the thumb and preset selector with the reported HA state, including when a mode change leaves the percentage unchanged.
-- Shows the draft percentage while adjusting and preserves that draft during independent sensor refreshes.
-- Adds **Main reading** and **Statistics** sections to the visual editor, with sensor suggestions, labels, units, ordering, and removal.
-- Preserves existing shortcuts, templates, and attribute sources when editing other settings.
+HA state refreshes were reapplying committed values to text inputs before their edits were complete. The main-reading sensor/unit and statistic sensor/label/unit fields now preserve in-progress text, focus, and cursor position across background refreshes and unchanged configuration echoes.
 
-Validated with 12 model tests and 20 Chromium browser tests, including the device attributes supplied from a real 4 Pro. Physical operation still needs verification after installation.
+Changes still commit when a field is completed. Existing slider synchronization and statistic/template handling remain covered by regression tests.
 
-Update the card through HACS and reload the frontend. Existing YAML remains supported. To add statistics without YAML, edit the card and open **Statistics → Add statistic**.
+Added six slow-typing regression cases, including a newly added empty statistic, with HA state and configuration refreshes every 20 milliseconds. Full validation covers 12 model tests and 26 Chromium browser tests.
 
-The broader UI layout proposal is separate from this patch; the card retains its existing appearance.
+Update through HACS, close the editor, and reload the frontend before editing again.
