@@ -1,5 +1,6 @@
 /*  eslint-env node */
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import commonjs from '@rollup/plugin-commonjs';
 import nodeResolve from '@rollup/plugin-node-resolve';
 import json from '@rollup/plugin-json';
@@ -63,7 +64,7 @@ const plugins = [
     terser({
       maxWorkers: 1,
       output: {
-        comments: false,
+        comments: /@license|@preserve|^!/,
       },
     }),
 ].filter(Boolean);
@@ -72,6 +73,8 @@ export default {
   input: 'src/purifier-card.ts',
   output: {
     dir: 'dist',
+    entryFileNames: 'xiaomi-purifier-card.js',
+    banner: `/*! Xiaomi Purifier Card\n${readFileSync(new URL('./LICENSE', import.meta.url), 'utf8')}*/`,
     format: 'es',
     inlineDynamicImports: true,
   },

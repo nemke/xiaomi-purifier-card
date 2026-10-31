@@ -1,38 +1,35 @@
 # Contributing
 
-If you plan to contribute back to this repo, please fork & open a PR.
+This fork is based on [denysdovhan/purifier-card](https://github.com/denysdovhan/purifier-card). Keep the original MIT attribution.
 
-## How to add translation
+## Development
 
-Only a native speaker can translate to a specific language.
+Use Node.js 24 and npm 11 or newer (`.nvmrc` specifies Node 24).
 
-1. Copy `src/translations/en.json` file and name it with an appropriate language code.
-2. Translate only values in this file, not keys.
-3. Import your translation in `src/localize.js` file.
-4. Mention your translation in `README.md` file.
-5. Open a PR.
-6. Find someone to check and approve your PR.
+```sh
+npm ci
+npx playwright install chromium
+npm test
+npm start
+```
 
-**Do not open multiple PRs for a single translation**, this is just rude, they will be closed.
+`npm start` serves the compiled module at `http://localhost:5000/xiaomi-purifier-card.js` and rebuilds when source changes. The browser accessing HA must be able to reach that address. An HTTPS HA page cannot load an HTTP resource; use a suitable HTTPS development server or copy the built file to HA instead.
 
-## How to run locally
+- `npm run lint`: source lint and translation checks.
+- `npm run typecheck`: strict TypeScript checking.
+- `npm run test:unit`: model regression tests.
+- `npm run build`: bundle to `dist/xiaomi-purifier-card.js`.
+- `npm run test:browser`: Chromium tests against the local simulated-HA fixture.
+- `npm test`: all checks in order.
 
-1. Clone this repo to wherever you want:
-   ```sh
-   git clone https://github.com/denysdovhan/purifier-card.git
-   ```
-2. Go into the repo folder:
-   ```sh
-   cd purifier-card
-   ```
-3. Install dependencies (Node.js and npm are required):
-   ```sh
-   npm install
-   ```
-4. Run development server. It's going to watch source files, recompile on changes and server compiled a file on a local server.
-   ```sh
-   npm start
-   ```
-5. Add `http://localhost:5000/purifier-card.js` to your Lovelace resources.
+Use Conventional Commits, for example `fix: update independent sensors`. Include validation results and a screenshot for visible UI changes. Follow `AGENTS.md` for repository conventions.
 
-Now you can make changes to files in `src` folder. The development server will automatically rebuild on changes. Lovelace will load a resource from the development server. Refresh the browser to see changes. Make sure a cache is cleared or disabled.
+## Translations
+
+Retain existing locale keys and the English fallback. Add new English text first. New translations should be supplied or reviewed by a native speaker, following the upstream contribution policy. Import new locale files in `src/localize.ts`, and update the documented language list. Automated key checks do not establish linguistic accuracy.
+
+## Releases
+
+Update `docs/RELEASE_NOTES.md`, commit the change, and push a version tag such as `v0.1.0`. The release workflow installs the locked dependencies, sets the package version from the tag, runs all checks, and creates a release with the finished JavaScript attached. The release is published only after the asset exists. HACS does not need an npm package.
+
+Actual-device verification must be recorded separately from simulated-state tests.

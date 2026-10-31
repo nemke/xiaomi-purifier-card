@@ -8,7 +8,9 @@
   },
   "state": {
     "on": "On",
-    "off": "Off"
+    "off": "Off",
+    "unavailable": "Unavailable",
+    "unknown": "Unknown"
   },
   "preset_mode": {
     "auto": "Auto",
@@ -37,6 +39,7 @@
     "show_state_aria_label_on": "Toggle display state on",
     "show_state_aria_label_off": "Toggle display state off",
     "show_toolbar": "Show Toolbar",
+    "show_preset_mode": "Show Preset Mode",
     "show_toolbar_aria_label_on": "Toggle display toolbar on",
     "show_toolbar_aria_label_off": "Toggle display toolbar off",
     "code_only_note": "Note: Setting actions and stats options are available exclusively using Code Editor."

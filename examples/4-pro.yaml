@@ -1,0 +1,52 @@
+type: custom:xiaomi-purifier-card
+entity: fan.zhimi_airp_vb4
+compact_view: false
+show_state: true
+show_name: true
+show_toolbar: true
+aqi:
+  entity_id: sensor.zhimi_airp_vb4_pm2_5
+  unit: PM 2.5
+stats:
+  - entity_id: sensor.zhimi_airp_vb4_pm10
+    unit: μg/m³
+    subtitle: PM 10
+  - entity_id: sensor.zhimi_airp_vb4_pm2_5
+    unit: μg/m³
+    subtitle: PM 2.5
+  - entity_id: sensor.zhimi_airp_vb4_motor_speed
+    unit: RPM
+    subtitle: Motor speed
+  - entity_id: sensor.zhimi_airp_vb4_filter_life_remaining
+    unit: '%'
+    subtitle: Filter remaining
+shortcuts:
+  - name: Silent
+    icon: mdi:weather-night
+    preset_mode: Silent
+  # xiaomi_miio fan_level controls Fan mode, not Favorite mode.
+  # These percentages are button labels, not a measured airflow percentage.
+  - name: 50%
+    icon: mdi:circle-slice-4
+    preset_mode: Fan
+    service: number.set_value
+    service_data:
+      entity_id: number.zhimi_airp_vb4_fan_level
+      value: 1
+  - name: 75%
+    icon: mdi:circle-slice-6
+    preset_mode: Fan
+    service: number.set_value
+    service_data:
+      entity_id: number.zhimi_airp_vb4_fan_level
+      value: 2
+  - name: 100%
+    icon: mdi:circle-slice-8
+    preset_mode: Fan
+    service: number.set_value
+    service_data:
+      entity_id: number.zhimi_airp_vb4_fan_level
+      value: 3
+  - name: Auto
+    icon: mdi:brightness-auto
+    preset_mode: Auto

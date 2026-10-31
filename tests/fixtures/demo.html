@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  /><title>Xiaomi Purifier Card preview</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #111;
+      color: #eee;
+      font: 14px system-ui;
+      --primary-text-color: #eee;
+      --secondary-text-color: #aaa;
+      --ha-card-background: #1c1c1c;
+      --card-background-color: #1c1c1c;
+      --divider-color: #363636;
+      --primary-color: #59c7e8;
+      --secondary-background-color: #303030;
+    }
+    main {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+      gap: 20px;
+      max-width: 1000px;
+      margin: auto;
+    }
+    ha-card {
+      border: 1px solid #363636;
+      border-radius: 16px;
+    }
+  </style>
+  <main></main>
+  <script type="module">
+    import '/dist/xiaomi-purifier-card.js';
+    // These two small stand-ins are only for the preview harness. Real HA
+    // supplies ha-card and ha-icon, including its actual icon library.
+    customElements.define(
+      'ha-card',
+      class extends HTMLElement {
+        constructor() {
+          super();
+          this.attachShadow({ mode: 'open' }).innerHTML =
+            '<style>:host{border:1px solid var(--divider-color);border-radius:16px;display:block;overflow:hidden}</style><slot></slot>';
+        }
+      },
+    );
+    customElements.define(
+      'ha-icon',
+      class extends HTMLElement {
+        static observedAttributes = ['icon'];
+        constructor() {
+          super();
+          this.attachShadow({ mode: 'open' });
+        }
+        set icon(value) {
+          this._icon = value;
+          this.paint();
+        }
+        connectedCallback() {
+          this.paint();
+        }
+        attributeChangedCallback() {
+          this.paint();
+        }
+        paint() {
+          const icon = this._icon ?? this.getAttribute('icon') ?? '';
+          let content = '<circle cx="12" cy="12" r="8"/>';
+          if (icon.includes('power'))
+            content = '<path d="M12 3v9M7 5.5a8 8 0 1 0 10 0"/>';
+          else if (icon.includes('dots'))
+            content =
+              '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>';
+          else if (icon.includes('night'))
+            content = '<path d="M19 15A8 8 0 0 1 9 5a8 8 0 1 0 10 10Z"/>';
+          else if (icon.includes('auto'))
+            content =
+              '<circle cx="12" cy="12" r="9"/><path d="m8 16 4-9 4 9M10 13h4"/>';
+          else if (icon.includes('slice')) {
+            const fraction = Number(icon.split('-').at(-1)) / 8;
+            const angle = fraction * Math.PI * 2;
+            const x = 12 + 8 * Math.sin(angle),
+              y = 12 - 8 * Math.cos(angle);
+            content =
+              '<circle cx="12" cy="12" r="9"/><path fill="currentColor" stroke="none" opacity=".7" d="M12 12V4A8 8 0 ' +
+              (fraction > 0.5 ? 1 : 0) +
+              ' 1 ' +
+              x +
+              ' ' +
+              y +
+              'Z"/>';
+            if (fraction === 1)
+              content = '<circle cx="12" cy="12" r="9" fill="currentColor"/>';
+          } else if (icon.includes('fan'))
+            content =
+              '<circle cx="12" cy="12" r="2"/><path d="M12 10C4 3 18 1 14 10M14 12c10-3 5 10-1 3M10 13c-2 10-11 0-1-1"/>';
+          this.shadowRoot.innerHTML =
+            '<style>:host{display:inline-flex;width:24px;height:24px}svg{width:24px;height:24px}</style><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+            content +
+            '</svg>';
+        }
+      },
+    );
+    const entity = (id, state, attributes = {}) => ({
+      entity_id: id,
+      state: String(state),
+      attributes,
+      last_changed: '2026-10-31T12:00:00Z',
+      last_updated: '2026-10-31T12:00:00Z',
+      context: { id: 'test', parent_id: null, user_id: null },
+    });
+    const configs = [
+      {
+        type: 'custom:xiaomi-purifier-card',
+        entity: 'fan.zhimi_airp_vb4',
+        compact_view: false,
+        aqi: { entity_id: 'sensor.zhimi_airp_vb4_pm2_5', unit: 'PM 2.5' },
+        stats: [
+          {
+            entity_id: 'sensor.zhimi_airp_vb4_pm10',
+            unit: 'μg/m³',
+            subtitle: 'PM 10',
+          },
+          {
+            entity_id: 'sensor.zhimi_airp_vb4_pm2_5',
+            unit: 'μg/m³',
+            subtitle: 'PM 2.5',
+          },
+          {
+            entity_id: 'sensor.zhimi_airp_vb4_motor_speed',
+            unit: 'RPM',
+            subtitle: 'Motor speed',
+          },
+          {
+            entity_id: 'sensor.zhimi_airp_vb4_filter_life_remaining',
+            unit: '%',
+            subtitle: 'Filter remaining',
+          },
+        ],
+        shortcuts: [
+          { name: 'Silent', icon: 'mdi:weather-night', speed: 'Silent' },
+          ...[1, 2, 3].map((value, index) => ({
+            name: ['50%', '75%', '100%'][index],
+            icon: 'mdi:circle-slice-' + [4, 6, 8][index],
+            preset_mode: 'Fan',
+            service: 'number.set_value',
+            service_data: {
+              entity_id: 'number.zhimi_airp_vb4_fan_level',
+              value: String(value),
+            },
+          })),
+          { name: 'Auto', icon: 'mdi:brightness-auto', speed: 'Auto' },
+        ],
+      },
+      {
+        type: 'custom:xiaomi-purifier-card',
+        entity: 'fan.mi_air_purifier_3c',
+        aqi: { entity_id: 'sensor.mi_air_purifier_3c_pm2_5', unit: 'PM 2.5' },
+        stats: [
+          {
+            entity_id: 'sensor.mi_air_purifier_3c_filter_life_remaining',
+            unit: '%',
+            subtitle: 'Filter Remaining',
+          },
+          {
+            entity_id: 'sensor.mi_air_purifier_3c_motor_speed',
+            unit: 'RPM',
+            subtitle: 'Motor speed',
+          },
+          {
+            entity_id: 'sensor.mi_air_purifier_3c_filter_use',
+            unit: 'Hours',
+            subtitle: 'Filter use',
+          },
+        ],
+        shortcuts: [
+          { name: 'Silent', icon: 'mdi:weather-night', speed: 'Silent' },
+          ...[750, 1250, 1700, 2200].map((value, index) => ({
+            name: [25, 50, 75, 100][index] + '%',
+            icon: 'mdi:circle-slice-' + [2, 4, 6, 8][index],
+            preset_mode: 'Favorite',
+            service: 'number.set_value',
+            service_data: {
+              entity_id: 'number.mi_air_purifier_3c_favorite_motor_speed',
+              value: String(value),
+            },
+          })),
+          { name: 'Auto', icon: 'mdi:brightness-auto', speed: 'Auto' },
+        ],
+      },
+    ];
+    const states = {};
+    for (const config of configs) {
+      states[config.entity] = entity(config.entity, 'on', {
+        friendly_name: config.entity.includes('vb4')
+          ? 'Xiaomi Air Purifier 4 Pro'
+          : 'Mi Air Purifier 3C',
+        preset_modes: ['Auto', 'Silent', 'Favorite', 'Fan'],
+        preset_mode: 'Auto',
+        supported_features: 56,
+      });
+      for (const stat of [...config.stats, config.aqi])
+        states[stat.entity_id] = entity(
+          stat.entity_id,
+          stat.entity_id.includes('motor')
+            ? 750
+            : stat.entity_id.includes('remaining')
+              ? 92
+              : 5,
+        );
+    }
+    states['number.zhimi_airp_vb4_fan_level'] = entity(
+      'number.zhimi_airp_vb4_fan_level',
+      1,
+      { min: 1, max: 3, step: 1 },
+    );
+    states['number.mi_air_purifier_3c_favorite_motor_speed'] = entity(
+      'number.mi_air_purifier_3c_favorite_motor_speed',
+      750,
+      { min: 300, max: 2200, step: 10 },
+    );
+    window.calls = [];
+    window.rejectCommand = false;
+    window.hass = {
+      states,
+      language: 'en',
+      themes: {},
+      callService: async (domain, service, data, target) => {
+        window.calls.push({ domain, service, data, target });
+        if (window.rejectCommand) throw new Error('Device rejected command');
+      },
+      connection: {
+        subscribeMessage: async (callback) => {
+          callback({ result: 'formatted value' });
+          return () => {};
+        },
+      },
+    };
+    window.configs = configs;
+    window.cards = configs.map((config) => {
+      const card = document.createElement('xiaomi-purifier-card');
+      card.setConfig(config);
+      card.hass = window.hass;
+      document.querySelector('main').append(card);
+      return card;
+    });
+    window.updateEntity = (id, state, attributes) => {
+      window.hass = {
+        ...window.hass,
+        states: {
+          ...window.hass.states,
+          [id]: {
+            ...window.hass.states[id],
+            state: String(state),
+            attributes: attributes ?? window.hass.states[id]?.attributes ?? {},
+          },
+        },
+      };
+      for (const card of window.cards) card.hass = window.hass;
+    };
+  </script>
+</html>

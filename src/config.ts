@@ -8,8 +8,24 @@ export default function buildConfig(
     throw new Error(localize('error.invalid_config'));
   }
 
-  if (!config.entity) {
+  if (
+    typeof config.entity !== 'string' ||
+    !/^fan\.[a-z0-9_]+$/.test(config.entity)
+  ) {
     throw new Error(localize('error.missing_entity'));
+  }
+
+  for (const key of ['stats', 'shortcuts'] as const) {
+    if (config[key] !== undefined && !Array.isArray(config[key])) {
+      throw new Error(`${key} must be a list`);
+    }
+    if (
+      config[key]?.some(
+        (item) => !item || typeof item !== 'object' || Array.isArray(item),
+      )
+    ) {
+      throw new Error(`${key} entries must be objects`);
+    }
   }
 
   return {
@@ -22,6 +38,9 @@ export default function buildConfig(
     compact_view: config.compact_view ?? false,
     aqi: config.aqi ?? {},
     stats: config.stats ?? [],
-    shortcuts: config.shortcuts ?? [],
+    shortcuts: (config.shortcuts ?? []).map((shortcut) => ({
+      ...shortcut,
+      preset_mode: shortcut.preset_mode ?? shortcut.speed,
+    })),
   };
 }

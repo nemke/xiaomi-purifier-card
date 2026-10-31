@@ -1,32 +1,25 @@
-name: Main
+name: Validate
 on:
   push:
   pull_request:
-
 permissions:
-  contents: write
-  pull-requests: write
-
+  contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: validate-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   validate:
-    name: Validate
     runs-on: ubuntu-latest
     steps:
-      - name: ⬇️ Checkout Repo
-        uses: actions/checkout@v7
-
-      - name: ⬢ Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
-          node-version: latest
+          node-version-file: .nvmrc
           cache: npm
-
-      - name: 📦 Install Packages
-        run: npm ci
-
-      - name: 🧪 Test
-        run: npm test
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xiaomi-purifier-card
+          path: dist/xiaomi-purifier-card.js

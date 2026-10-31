@@ -1,5 +1,6 @@
 {
-  "name": "Purifier Card",
+  "name": "Xiaomi Purifier Card",
   "render_readme": true,
-  "filename": "purifier-card.js"
+  "filename": "xiaomi-purifier-card.js",
+  "homeassistant": "2026.10.4"
 }

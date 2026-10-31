@@ -48,9 +48,22 @@ export interface PurifierCardShortcut {
   target?: HassServiceTarget;
   percentage?: number;
   preset_mode?: string;
+  /** Legacy alias for preset_mode. */
+  speed?: string;
+  actions?: PurifierAction[];
+  state_entity?: string;
+  state?: string | number;
+}
+
+export interface PurifierAction {
+  service: string;
+  service_data?: Record<string, unknown>;
+  target?: HassServiceTarget;
 }
 
 export interface PurifierCardConfig {
+  type?: string;
+  name?: string;
   entity: string;
   show_name: boolean;
   show_state: boolean;

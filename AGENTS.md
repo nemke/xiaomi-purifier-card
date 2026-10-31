@@ -21,7 +21,7 @@
 - `npm run lint`: Run ESLint on `src/`.
 - `npm run lint:fix`: Auto-fix lint issues in `src/`.
 - `npm run format`: Format with Prettier (respects `.prettier` settings in `package.json`).
-- `npm test`: Runs `lint` then `build` (no separate test suite).
+- `npm test`: Runs lint, strict type checking, Node regression tests, the production build, and Playwright browser tests. Node 24 and npm 11 or newer are required.
 
 ## Coding Style & Naming Conventions
 
@@ -49,8 +49,8 @@
 
 ## Testing Guidelines
 
-- No dedicated test framework is configured.
-- Use `npm test` to validate linting and the production build.
+- Model regression tests use Node’s built-in test runner. Browser tests use Playwright with simulated HA state.
+- Use `npm test` to validate the entire project. Browser tests require Chromium (`npx playwright install chromium`), or use the system Chrome when available.
 - Keep changes buildable; avoid introducing new build-time warnings.
 
 ## Commit & Pull Request Guidelines
@@ -61,5 +61,5 @@
 
 ## Release & Automation Notes
 
-- Releases are handled by semantic-release on `main` with assets from `dist/purifier-card.js`.
+- Pushing a `v*` tag runs validation, builds `dist/xiaomi-purifier-card.js`, and publishes a GitHub release with that asset. No npm publishing is needed.
 - Ensure build output remains stable when changing dependencies or build config.

@@ -1,0 +1,54 @@
+type: custom:xiaomi-purifier-card
+entity: fan.mi_air_purifier_3c
+aqi:
+  entity_id: sensor.mi_air_purifier_3c_pm2_5
+  unit: PM 2.5
+stats:
+  - entity_id: sensor.mi_air_purifier_3c_filter_life_remaining
+    unit: '%'
+    subtitle: Filter Remaining
+  - entity_id: sensor.mi_air_purifier_3c_motor_speed
+    unit: RPM
+    subtitle: Motor speed
+  - entity_id: sensor.mi_air_purifier_3c_filter_use
+    unit: Hours
+    subtitle: Filter use
+show_state: true
+show_name: true
+show_toolbar: true
+shortcuts:
+  - name: Silent
+    icon: mdi:weather-night
+    preset_mode: Silent
+  # Percentages are user-selected labels for these RPM settings.
+  - name: 25%
+    icon: mdi:circle-slice-2
+    preset_mode: Favorite
+    service: number.set_value
+    service_data:
+      entity_id: number.mi_air_purifier_3c_favorite_motor_speed
+      value: 750
+  - name: 50%
+    icon: mdi:circle-slice-4
+    preset_mode: Favorite
+    service: number.set_value
+    service_data:
+      entity_id: number.mi_air_purifier_3c_favorite_motor_speed
+      value: 1250
+  - name: 75%
+    icon: mdi:circle-slice-6
+    preset_mode: Favorite
+    service: number.set_value
+    service_data:
+      entity_id: number.mi_air_purifier_3c_favorite_motor_speed
+      value: 1700
+  - name: 100%
+    icon: mdi:circle-slice-8
+    preset_mode: Favorite
+    service: number.set_value
+    service_data:
+      entity_id: number.mi_air_purifier_3c_favorite_motor_speed
+      value: 2200
+  - name: Auto
+    icon: mdi:brightness-auto
+    preset_mode: Auto

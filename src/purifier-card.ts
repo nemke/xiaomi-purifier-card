@@ -1,475 +1,332 @@
-import { CSSResultGroup, LitElement, PropertyValues, html, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
-import { repeat } from 'lit/directives/repeat.js';
 import {
-  hasConfigOrEntityChanged,
-  fireEvent,
-  HomeAssistant,
-  ServiceCallRequest,
-} from 'custom-card-helpers';
+  LitElement,
+  html,
+  nothing,
+  type PropertyValues,
+  type CSSResultGroup,
+} from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
+import { fireEvent, type HomeAssistant } from 'custom-card-helpers';
 import registerTemplates from 'ha-template';
-import get from 'lodash/get';
-import localize from './localize';
 import styles from './styles.css';
 import workingImg from './images/purifier-working.gif';
 import standbyImg from './images/purifier-standby.png';
-
-import {
-  PurifierCardConfig,
-  PurifierEntity,
-  SliderValue,
-  Template,
-} from './types';
+import localize from './localize';
 import buildConfig from './config';
+import {
+  prepareActions,
+  readValue,
+  referencedEntities,
+  shortcutActions,
+  shortcutActive,
+} from './model';
+import type {
+  PurifierAction,
+  PurifierCardConfig,
+  PurifierCardShortcut,
+  PurifierEntity,
+} from './types';
 
 registerTemplates();
-
-// String on the right side will be replaced by Rollup
 const PKG_VERSION = 'PKG_VERSION_VALUE';
+console.info(`XIAOMI-PURIFIER-CARD ${PKG_VERSION}`);
 
-console.info(
-  `%c PURIFIER-CARD %c ${PKG_VERSION} `,
-  'color: white; background: blue; font-weight: 700;',
-  'color: blue; background: white; font-weight: 700;',
-);
-
-if (!customElements.get('ha-icon-button')) {
-  customElements.define(
-    'ha-icon-button',
-    class extends (customElements.get('paper-icon-button') ?? HTMLElement) {},
-  );
-}
-
-const SUPPORT_PRESET_MODE = 8;
-@customElement('purifier-card')
+@customElement('xiaomi-purifier-card')
 export class PurifierCard extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
-
   @state() private config!: PurifierCardConfig;
-  @state() private requestInProgress = false;
+  @state() private pending = false;
+  @state() private error = '';
 
   public static get styles(): CSSResultGroup {
     return styles;
   }
-
   public static async getConfigElement() {
-    import('./editor');
-    return document.createElement('purifier-card-editor');
+    await import('./editor');
+    return document.createElement('xiaomi-purifier-card-editor');
   }
-
-  public static getStubConfig(
-    _: unknown,
-    entities: string[],
-  ): Partial<PurifierCardConfig> {
-    const [purifierEntity] = entities.filter((eid) => eid.startsWith('fan'));
-
-    return {
-      entity: purifierEntity ?? '',
-    };
+  public static getStubConfig(_: unknown, entities: string[]) {
+    return { entity: entities.find((id) => id.startsWith('fan.')) ?? '' };
   }
-
   public setConfig(config: Partial<PurifierCardConfig>) {
     this.config = buildConfig(config);
   }
-
-  get entity(): PurifierEntity {
-    return this.hass.states[this.config.entity] as PurifierEntity;
+  private get entity(): PurifierEntity | undefined {
+    return this.hass?.states[this.config.entity] as PurifierEntity | undefined;
   }
-
+  private get available() {
+    return (
+      !!this.entity && !['unknown', 'unavailable'].includes(this.entity.state)
+    );
+  }
   public getCardSize() {
-    return 2;
+    return this.config?.compact_view ? 5 : 8;
+  }
+  public getGridOptions() {
+    return { columns: 12, rows: 'auto', min_columns: 6 };
   }
 
-  protected shouldUpdate(changedProps: PropertyValues) {
-    return hasConfigOrEntityChanged(this, changedProps, false);
+  protected shouldUpdate(changed: PropertyValues) {
+    if (!this.config || !this.hass) return false;
+    if ([...changed.keys()].some((key) => key !== 'hass')) return true;
+    const previous = changed.get('hass') as HomeAssistant | undefined;
+    return (
+      !previous ||
+      previous.language !== this.hass.language ||
+      previous.themes !== this.hass.themes ||
+      referencedEntities(this.config).some(
+        (id) => previous.states[id] !== this.hass.states[id],
+      )
+    );
   }
 
-  protected updated(changedProps: PropertyValues) {
-    if (
-      changedProps.get('hass') &&
-      changedProps.get('hass').states[this.config.entity] !==
-        this.hass.states[this.config.entity]
-    ) {
-      this.requestInProgress = false;
-    }
-  }
-
-  private handleMore(entityId: string = this.entity.entity_id) {
+  private moreInfo(entityId = this.config.entity) {
     fireEvent(
       this,
       'hass-more-info',
-      {
-        entityId,
-      },
-      {
-        bubbles: false,
-        composed: true,
-      },
+      { entityId },
+      { bubbles: true, composed: true },
     );
   }
 
-  private callService(
-    service: ServiceCallRequest['service'],
-    options: ServiceCallRequest['serviceData'] = {},
-    target?: ServiceCallRequest['target'],
-    request = true,
-  ) {
-    const [domain, name] = service.split('.');
-    this.hass.callService(
-      domain,
-      name,
-      {
-        entity_id: this.config.entity,
-        ...options,
-      },
-      target,
+  private async execute(actions: PurifierAction[]) {
+    if (this.pending || !this.available) return;
+    this.pending = true;
+    this.error = '';
+    try {
+      const prepared = prepareActions(
+        actions,
+        this.hass.states,
+        this.config.entity,
+      );
+      for (const action of prepared) {
+        const [domain, service] = action.service.split('.');
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          await Promise.race([
+            this.hass.callService(
+              domain,
+              service,
+              action.service_data,
+              action.target,
+            ),
+            new Promise<never>((_, reject) => {
+              timer = setTimeout(
+                () =>
+                  reject(
+                    new Error(
+                      'Command timed out. Check the device state before retrying.',
+                    ),
+                  ),
+                10000,
+              );
+            }),
+          ]);
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+    } catch (error) {
+      this.error =
+        error && typeof error === 'object' && 'message' in error
+          ? String(error.message)
+          : String(error);
+    } finally {
+      this.pending = false;
+    }
+  }
+
+  private runShortcut(shortcut: PurifierCardShortcut) {
+    void this.execute(shortcutActions(shortcut, this.config.entity));
+  }
+
+  private renderAQI() {
+    const source = this.config.aqi;
+    if (!source.entity_id && !source.attribute) return nothing;
+    const raw = readValue(this.hass.states, source, this.config.entity);
+    const value =
+      raw === undefined || raw === null || raw === '' ? '—' : String(raw);
+    return html`<div class="current-aqi">
+      <span class="number-on">${value}</span
+      ><span class="aqi-unit"
+        >${source.unit ?? this.hass.states[source.entity_id ?? '']?.attributes.unit_of_measurement ?? 'AQI'}</span
+      >
+    </div>`;
+  }
+
+  private renderControls() {
+    const entity = this.entity;
+    const hasPercentage = !!(Number(entity?.attributes.supported_features) & 1);
+    const percentage = entity?.attributes.percentage;
+    return html` <div
+      class="controls ${this.config.compact_view ? 'compact' : ''}"
+    >
+      ${
+        this.config.compact_view
+          ? this.renderAQI()
+          : html` <div class="dial" data-on=${entity?.state === 'on'}>
+              <img
+                class="image"
+                src=${entity?.state === 'on' ? workingImg : standbyImg}
+                alt=""
+                @error=${(event: Event) => {
+                  (event.target as HTMLImageElement).hidden = true;
+                }}
+              />
+              ${this.renderAQI()}
+            </div>`
+      }
+      ${
+        hasPercentage
+          ? html`<label class="speed-control"
+              ><span>${percentage ?? '—'}%</span
+              ><input
+                type="range"
+                aria-label="Fan speed"
+                min="0"
+                max="100"
+                step=${entity?.attributes.percentage_step || 1}
+                .value=${String(percentage ?? 0)}
+                ?disabled=${!this.available || entity?.state !== 'on' || this.pending}
+                @change=${(event: Event) => {
+                  void this.execute([
+                    {
+                      service: 'fan.set_percentage',
+                      service_data: {
+                        percentage: Number(
+                          (event.target as HTMLInputElement).value,
+                        ),
+                      },
+                    },
+                  ]);
+                }}
+            /></label>`
+          : nothing
+      }
+    </div>`;
+  }
+
+  private renderStats() {
+    const stats = this.config.stats.filter(
+      (stat) => stat.entity_id || stat.attribute,
     );
-
-    if (request) {
-      this.requestInProgress = true;
-      this.requestUpdate();
-    }
-  }
-
-  private handlePresetMode(
-    e: CustomEvent<{ item?: { value?: string } }>,
-  ): void {
-    const preset_mode = e.detail.item?.value;
-    this.callService('fan.set_preset_mode', { preset_mode });
-  }
-
-  private renderDropdown({
-    icon,
-    value,
-    options,
-    onSelect,
-    formatLabel,
-    ariaLabel,
-  }: {
-    icon: string;
-    value: string;
-    options: string[];
-    onSelect: (_e: CustomEvent<{ item?: { value?: string } }>) => void;
-    formatLabel: (_value: string) => string;
-    ariaLabel?: string;
-  }): Template {
-    const selectedLabel = formatLabel(value);
-
-    return html`
-      <div class="tip dropdown-tip" @click=${(e: Event) => e.stopPropagation()}>
-        <ha-dropdown placement="bottom" @wa-select=${onSelect}>
-          <button
-            class="dropdown-trigger"
-            slot="trigger"
-            aria-label=${ariaLabel ?? selectedLabel}
-          >
-            <ha-icon icon=${icon}></ha-icon>
-            <span class="tip-title">${selectedLabel}</span>
-            <ha-icon
-              class="dropdown-trigger-arrow"
-              icon="mdi:menu-down"
-            ></ha-icon>
-          </button>
-          ${repeat(
-            options,
-            (item) => item,
-            (item) => html`
-              <ha-dropdown-item .value=${item} ?checked=${item === value}>
-                ${formatLabel(item)}
-              </ha-dropdown-item>
-            `,
-          )}
-        </ha-dropdown>
-      </div>
-    `;
-  }
-
-  private handlePercentage(event: CustomEvent<SliderValue>) {
-    const percentage = event.detail.value;
-    this.callService('fan.set_percentage', { percentage });
-  }
-
-  private renderPresetMode(): Template {
-    const {
-      attributes: { preset_mode, preset_modes, supported_features = 0 },
-    } = this.entity;
-
-    if (
-      !preset_mode ||
-      !this.config.show_preset_mode ||
-      !preset_modes ||
-      !(supported_features & SUPPORT_PRESET_MODE)
-    ) {
-      return nothing;
-    }
-
-    return this.renderDropdown({
-      icon: 'mdi:fan',
-      value: preset_mode,
-      options: preset_modes,
-      onSelect: (e) => this.handlePresetMode(e),
-      formatLabel: (value: string) =>
-        localize(`preset_mode.${value.toLowerCase()}`) ?? value,
-      ariaLabel: localize('common.preset_mode') || 'Preset mode',
-    });
-  }
-
-  private renderAQI(): Template {
-    const { aqi = {} } = this.config;
-    const { entity_id, attribute, unit = 'AQI' } = aqi;
-
-    let value = '';
-
-    if (entity_id && attribute) {
-      value = get(this.hass.states[entity_id].attributes, attribute);
-    } else if (attribute) {
-      value = get(this.entity.attributes, attribute);
-    } else if (entity_id) {
-      value = this.hass.states[entity_id].state;
-    } else {
-      return nothing;
-    }
-
-    let prefix: Template = nothing;
-    const numericValue = Number(value);
-
-    if (numericValue < 10) {
-      prefix = html`<span class="number-off">00</span>`;
-    } else if (numericValue < 100) {
-      prefix = html`<span class="number-off">0</span>`;
-    }
-
-    return html`
-      <div class="current-aqi">
-        ${prefix}<span class="number-on">${value}</span>
-        <sup>${unit}</sup>
-      </div>
-    `;
-  }
-
-  private renderSlider(): Template {
-    const {
-      state,
-      attributes: { percentage, percentage_step },
-    } = this.entity;
-
-    const disabled = state !== 'on';
-    const image = !disabled ? workingImg : standbyImg;
-
-    return html`
-      <div class="slider">
-        <round-slider
-          value=${percentage}
-          step=${percentage_step}
-          ?disabled="${disabled}"
-          @value-changed=${(e: CustomEvent<SliderValue>) =>
-            this.handlePercentage(e)}
+    if (!stats.length) return nothing;
+    return html`<div class="stats">
+      ${stats.map((stat) => {
+        const raw = readValue(this.hass.states, stat, this.config.entity);
+        const valid = raw !== undefined && raw !== null && raw !== '';
+        const value = valid ? String(raw) : '—';
+        return html`<button
+          type="button"
+          class="stats-block"
+          @click=${() => this.moreInfo(stat.entity_id)}
         >
-        </round-slider>
-        <img src=${image} alt="purifier is ${state}" class="image" />
-        <div class="slider-center">
-          <div class="slider-content">${this.renderAQI()}</div>
-          <div class="slider-value">
-            ${percentage ? `${percentage}%` : nothing}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  private renderControls(): Template {
-    return this.config.compact_view ? this.renderAQI() : this.renderSlider();
-  }
-
-  private renderName(): Template {
-    const {
-      attributes: { friendly_name },
-    } = this.entity;
-
-    if (!this.config.show_name) {
-      return nothing;
-    }
-
-    return html` <div class="friendly-name">${friendly_name}</div> `;
-  }
-
-  private renderState(): Template {
-    const { state } = this.entity;
-    const localizedState = localize(`state.${state}`) || state;
-
-    if (!this.config.show_state) {
-      return nothing;
-    }
-
-    return html`
-      <div class="state">
-        ${this.requestInProgress
-          ? html`<ha-spinner class="state-spinner" size="tiny"></ha-spinner>`
-          : nothing}
-        <span class="state-text" alt=${localizedState}>
-          ${localizedState}
-        </span>
-      </div>
-    `;
-  }
-
-  private renderStats(): Template {
-    const statsList = this.config.stats || [];
-
-    const stats = statsList.map(
-      ({ entity_id, attribute, value_template, unit, subtitle }) => {
-        if (!entity_id && !attribute) {
-          return nothing;
-        }
-
-        let state = '';
-
-        if (entity_id && attribute) {
-          state = get(this.hass.states[entity_id].attributes, attribute);
-        } else if (attribute) {
-          state = get(this.entity.attributes, attribute);
-        } else if (entity_id) {
-          state = this.hass.states[entity_id]?.state;
-        } else {
-          return nothing;
-        }
-
-        const value = state
-          ? html`
-              <ha-template
-                hass=${this.hass}
-                template=${value_template}
-                value=${state}
-                variables=${{ value: state }}
-              ></ha-template>
-            `
-          : nothing;
-
-        return html`
-          <div class="stats-block" @click="${() => this.handleMore(entity_id)}">
-            <span class="stats-value">${value}</span>
-            ${unit}
-            <div class="stats-subtitle">${subtitle}</div>
-          </div>
-        `;
-      },
-    );
-
-    return stats.length ? html`<div class="stats">${stats}</div>` : nothing;
-  }
-
-  private renderToolbar(): Template {
-    const { shortcuts = [] } = this.config;
-    const { state, attributes } = this.entity;
-
-    if (!this.config.show_toolbar) {
-      return nothing;
-    }
-
-    const buttons = shortcuts.map(
-      ({
-        name,
-        icon,
-        service,
-        service_data,
-        target,
-        preset_mode,
-        percentage,
-      }) => {
-        const execute = () => {
-          if (service) {
-            this.callService(service, target, service_data);
-          }
-
-          if (preset_mode) {
-            this.callService('fan.set_preset_mode', { preset_mode });
-          }
-
-          if (percentage) {
-            this.callService('fan.set_percentage', { percentage });
-          }
-        };
-
-        const isActive =
-          service ||
-          percentage === attributes.percentage ||
-          preset_mode === attributes.preset_mode;
-
-        const className = isActive ? 'active' : '';
-
-        return html`
-          <ha-icon-button
-            icon="${icon}"
-            title="${name}"
-            class="${className}"
-            @click="${execute}"
-            ><ha-icon icon="${icon}"></ha-icon
-          ></ha-icon-button>
-        `;
-      },
-    );
-
-    return html`
-      <div class="toolbar">
-        <ha-icon-button
-          icon="hass:power"
-          class="${state === 'on' ? 'active' : ''}"
-          title="${localize('common.toggle_power')}"
-          @click="${() => this.callService('fan.toggle')}"
-          ><ha-icon icon="hass:power"></ha-icon>
-        </ha-icon-button>
-
-        <div class="fill-gap"></div>
-
-        ${buttons}
-      </div>
-    `;
-  }
-
-  private renderUnavailable(): Template {
-    return html`
-      <ha-card>
-        <div class="preview not-available">
-          <div class="metadata">
-            <div class="not-available">
-              ${localize('common.not_available')}
-            </div>
-          <div>
-        </div>
-      </ha-card>
-    `;
+          <span class="stats-reading"
+            ><span class="stats-value"
+              >${valid && stat.value_template ? html`<ha-template .hass=${this.hass} .template=${stat.value_template} .value=${value} .variables=${{ value }}></ha-template>` : value}</span
+            ><span class="stats-unit"
+              >${stat.unit ?? this.hass.states[stat.entity_id ?? '']?.attributes.unit_of_measurement ?? ''}</span
+            ></span
+          ><span class="stats-subtitle"
+            >${stat.subtitle ?? stat.attribute ?? stat.entity_id}</span
+          >
+        </button>`;
+      })}
+    </div>`;
   }
 
   protected render() {
-    if (!this.entity) {
-      return this.renderUnavailable();
-    }
-
-    return html`
-      <ha-card>
-        <ha-ripple></ha-ripple>
-        <div class="preview">
-          <div class="header">
-            <div class="tips">${this.renderPresetMode()}</div>
-            <ha-icon-button
-              class="more-info"
-              icon="mdi:dots-vertical"
-              ?more-info="true"
-              @click="${() => this.handleMore()}"
-              ><ha-icon icon="mdi:dots-vertical"></ha-icon
-            ></ha-icon-button>
-          </div>
-
-          <div class="controls">${this.renderControls()}</div>
-
-          <div class="metadata">${this.renderName()} ${this.renderState()}</div>
-
-          ${this.renderStats()}
-        </div>
-
-        ${this.renderToolbar()}
-      </ha-card>
-    `;
+    if (!this.config || !this.hass) return nothing;
+    const entity = this.entity;
+    const disabled = !this.available || this.pending;
+    const modes = entity?.attributes.preset_modes ?? [];
+    const currentMode = entity?.attributes.preset_mode;
+    return html`<ha-card aria-busy=${String(this.pending)}>
+      <div class="header">
+        ${
+          this.config.show_preset_mode && modes.length
+            ? html`<label class="mode-control"
+                ><ha-icon icon="mdi:fan"></ha-icon
+                ><select
+                  aria-label="Preset mode"
+                  .value=${currentMode ?? ''}
+                  ?disabled=${disabled}
+                  @change=${(event: Event) => {
+                    void this.execute([
+                      {
+                        service: 'fan.set_preset_mode',
+                        service_data: {
+                          preset_mode: (event.target as HTMLSelectElement)
+                            .value,
+                        },
+                      },
+                    ]);
+                  }}
+                >
+                  ${!currentMode ? html`<option value="" disabled>—</option>` : nothing}${modes.map((mode) => html`<option .value=${mode} ?selected=${mode === currentMode}>${localize(`preset_mode.${mode.toLowerCase()}`) ?? mode}</option>`)}
+                </select></label
+              >`
+            : html`<span></span>`
+        }
+        <button
+          type="button"
+          class="icon-button more-info"
+          aria-label="More information"
+          @click=${() => this.moreInfo()}
+        >
+          <ha-icon icon="mdi:dots-vertical"></ha-icon>
+        </button>
+      </div>
+      ${this.renderControls()}
+      <div class="metadata">
+        ${this.config.show_name ? html`<div class="friendly-name">${this.config.name ?? entity?.attributes.friendly_name ?? this.config.entity}</div>` : nothing}
+        ${this.config.show_state || !this.available ? html`<div class="state" role="status">${localize(`state.${entity?.state ?? 'unavailable'}`) ?? entity?.state ?? 'Unavailable'}${this.pending ? ' …' : ''}</div>` : nothing}
+      </div>
+      ${this.error ? html`<div class="error" role="alert">${this.error}</div>` : nothing}
+      ${this.renderStats()}
+      ${
+        this.config.show_toolbar
+          ? html`<div class="toolbar">
+              <button
+                type="button"
+                class="icon-button power ${entity?.state === 'on' ? 'active' : ''}"
+                aria-label=${localize('common.toggle_power') ?? 'Toggle power'}
+                ?disabled=${disabled}
+                @click=${() => {
+                  void this.execute([
+                    {
+                      service:
+                        entity?.state === 'on' ? 'fan.turn_off' : 'fan.turn_on',
+                    },
+                  ]);
+                }}
+              >
+                <ha-icon icon="mdi:power"></ha-icon>
+              </button>
+              <div class="shortcuts">
+                ${this.config.shortcuts.map((shortcut) => {
+                  const active = shortcutActive(
+                    shortcut,
+                    this.hass.states,
+                    this.config.entity,
+                  );
+                  return html`<button
+                    type="button"
+                    class="icon-button ${active ? 'active' : ''}"
+                    aria-label=${shortcut.name ?? shortcut.preset_mode ?? shortcut.service ?? 'Shortcut'}
+                    aria-pressed=${String(active)}
+                    title=${shortcut.name ?? ''}
+                    ?disabled=${disabled}
+                    @click=${() => this.runShortcut(shortcut)}
+                  >
+                    ${shortcut.icon ? html`<ha-icon .icon=${shortcut.icon}></ha-icon>` : html`<span>${shortcut.name ?? shortcut.preset_mode ?? '▶'}</span>`}
+                  </button>`;
+                })}
+              </div>
+            </div>`
+          : nothing
+      }
+    </ha-card>`;
   }
 }
 
@@ -478,11 +335,11 @@ declare global {
     customCards?: unknown[];
   }
 }
-
 window.customCards = window.customCards || [];
 window.customCards.push({
   preview: true,
-  type: 'purifier-card',
-  name: localize('common.name'),
-  description: localize('common.description'),
+  type: 'xiaomi-purifier-card',
+  name: 'Xiaomi Purifier Card',
+  description:
+    'Air purifier controls with configurable sensors, modes, and speed shortcuts.',
 });

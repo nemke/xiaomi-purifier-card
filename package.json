@@ -1,8 +1,8 @@
 {
-  "name": "purifier-card",
-  "version": "0.0.0-unreleased",
-  "description": "Air Purifier card for Home Assistant Lovelace UI",
-  "main": "dist/purifier-card.js",
+  "name": "xiaomi-purifier-card",
+  "version": "0.1.0",
+  "description": "Configurable Xiaomi air purifier dashboard card for Home Assistant",
+  "main": "dist/xiaomi-purifier-card.js",
   "scripts": {
     "start": "rollup -c --watch",
     "lint": "npm run lint:src && npm run lint:translations",
@@ -11,8 +11,11 @@
     "lint:translations": "node scripts/validate-i18n",
     "format": "prettier --write .",
     "build": "rollup -c",
-    "test": "npm run lint && npm run build",
-    "prepare": "husky"
+    "test": "npm run lint && npm run typecheck && npm run test:unit && npm run build && npm run test:browser",
+    "prepare": "husky",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "node --test tests/model.test.mjs",
+    "test:browser": "playwright test"
   },
   "keywords": [
     "home-assistant",
@@ -30,7 +33,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/denysdovhan/purifier-card.git"
+    "url": "https://github.com/nemke/xiaomi-purifier-card.git"
   },
   "license": "MIT",
   "dependencies": {
@@ -45,6 +48,7 @@
     "@babel/plugin-transform-runtime": "^7.28.5",
     "@babel/preset-env": "^7.28.5",
     "@eslint/js": "^9.39.2",
+    "@playwright/test": "^1.64.1",
     "@rollup/plugin-babel": "^7.0.0",
     "@rollup/plugin-commonjs": "^29.0.0",
     "@rollup/plugin-image": "^3.0.3",
@@ -52,7 +56,6 @@
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-replace": "^6.0.3",
     "@rollup/plugin-terser": "^1.0.0",
-    "@semantic-release/git": "^10.0.1",
     "@types/lodash": "^4.14.195",
     "@typescript-eslint/eslint-plugin": "^8.51.0",
     "@typescript-eslint/parser": "^8.51.0",
@@ -70,7 +73,6 @@
     "rollup-plugin-postcss-lit": "^2.2.0",
     "rollup-plugin-serve": "^3.0.0",
     "rollup-plugin-typescript2": "^0.37.0",
-    "semantic-release": "^25.0.3",
     "typescript": "^5.9.3"
   },
   "browserslist": [
@@ -84,38 +86,16 @@
   "prettier": {
     "singleQuote": true
   },
-  "release": {
-    "branches": [
-      "main"
-    ],
-    "plugins": [
-      [
-        "@semantic-release/commit-analyzer",
-        {
-          "preset": "angular",
-          "releaseRules": [
-            {
-              "type": "chore",
-              "scope": "deps",
-              "release": "patch"
-            }
-          ]
-        }
-      ],
-      "@semantic-release/release-notes-generator",
-      "@semantic-release/npm",
-      [
-        "@semantic-release/github",
-        {
-          "assets": [
-            {
-              "path": "dist/purifier-card.js",
-              "label": "purifier-card.js"
-            }
-          ]
-        }
-      ],
-      "@semantic-release/git"
-    ]
-  }
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24",
+    "npm": ">=11"
+  },
+  "contributors": [
+    {
+      "name": "nemke",
+      "url": "https://github.com/nemke"
+    }
+  ]
 }
