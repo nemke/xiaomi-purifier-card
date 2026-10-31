@@ -1,6 +1,6 @@
 {
   "name": "xiaomi-purifier-card",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Configurable Xiaomi air purifier dashboard card for Home Assistant",
   "main": "dist/xiaomi-purifier-card.js",
   "scripts": {
