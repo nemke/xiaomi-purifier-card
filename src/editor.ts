@@ -111,6 +111,7 @@ export class PurifierCardEditor extends LitElement {
         pm10: 'PM 10',
         temperature: this.text('temperature'),
         humidity: this.text('humidity'),
+        filter: this.text('filter_remaining'),
       });
       const protectedSections = new Set(this.typingSections);
       if (!append) {

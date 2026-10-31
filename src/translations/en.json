@@ -4,6 +4,8 @@
     "description": "Purifier card allows you to control your smart purifier.",
     "not_available": "Entity is not available",
     "toggle_power": "Turn on/off",
+    "turn_on": "Turn on",
+    "turn_off": "Turn off",
     "preset_mode": "Preset mode"
   },
   "state": {
@@ -37,6 +39,7 @@
     "detection_failed": "Related sensors could not be loaded. You can choose them manually or try again.",
     "temperature": "Temperature",
     "humidity": "Humidity",
+    "filter_remaining": "Filter remaining",
     "choose_fan": "Choose a purifier",
     "main_reading": "Main reading",
     "reading_entity": "Reading sensor",

@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function mountEditor(page, options = {}) {
-  await page.evaluate(async ({ defer, fail, config }) => {
+  await page.evaluate(async ({ defer, fail, config, filter }) => {
     window.updateEntity('fan.zhimi_airp_vb4', 'on', {
       ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
       percentage: 33,
@@ -35,17 +35,28 @@ async function mountEditor(page, options = {}) {
       ['sensor.zhimi_airp_vb4_motor_speed', undefined, 'RPM', 'Motor speed'],
       ['sensor.mi_air_purifier_3c_pm2_5', 'pm25', 'μg/m³', 'Bedroom PM2.5'],
     ];
+    if (filter)
+      sources.push([
+        'sensor.zhimi_airp_vb4_filter_life_remaining',
+        undefined,
+        '%',
+        'Filter remaining',
+      ]);
     for (const [
       id,
       device_class,
       unit_of_measurement,
       friendly_name,
     ] of sources)
-      window.updateEntity(id, id.includes('motor') ? 750 : 5, {
-        device_class,
-        unit_of_measurement,
-        friendly_name,
-      });
+      window.updateEntity(
+        id,
+        id.includes('motor') ? 750 : id.includes('filter_life') ? 92 : 5,
+        {
+          device_class,
+          unit_of_measurement,
+          friendly_name,
+        },
+      );
     window.registry = [
       { entity_id: 'fan.zhimi_airp_vb4', device_id: 'living-room' },
       { entity_id: 'fan.mi_air_purifier_3c', device_id: 'bedroom' },
@@ -241,4 +252,53 @@ test('registry failure leaves a percentage fallback and usable manual fields', a
   expect(await page.evaluate(() => window.detectedConfig.aqi.entity_id)).toBe(
     'sensor.zhimi_airp_vb4_pm2_5',
   );
+});
+
+test('detects filter remaining as an editable statistic without adding duplicates', async ({
+  page,
+}) => {
+  const editor = await mountEditor(page, { filter: true });
+  await expect(editor.locator('.stat-editor')).toHaveCount(5);
+  await expect(
+    editor.getByRole('textbox', { name: 'Label 5', exact: true }),
+  ).toHaveValue('Filter remaining');
+  await expect(
+    page.locator('xiaomi-purifier-card').first().locator('.stats-value').last(),
+  ).toHaveText('92');
+  await editor
+    .getByRole('textbox', { name: 'Label 5', exact: true })
+    .fill('My filter');
+  await editor
+    .getByRole('textbox', { name: 'Label 5', exact: true })
+    .press('Tab');
+  await editor
+    .getByRole('button', { name: 'Detect missing sensors', exact: true })
+    .click();
+  await expect(editor.locator('.stat-editor')).toHaveCount(5);
+  await expect(
+    editor.getByRole('textbox', { name: 'Label 5', exact: true }),
+  ).toHaveValue('My filter');
+  const card = page.locator('xiaomi-purifier-card').first();
+  expect(
+    await card
+      .locator('.stats-block')
+      .evaluateAll(
+        (items) =>
+          new Set(
+            items.map((item) => Math.round(item.getBoundingClientRect().top)),
+          ).size,
+      ),
+  ).toBe(1);
+  await page.setViewportSize({ width: 375, height: 1000 });
+  await expect(card.locator('.device-badge')).not.toBeVisible();
+  expect(
+    await card
+      .locator('.stats-block')
+      .evaluateAll(
+        (items) =>
+          new Set(
+            items.map((item) => Math.round(item.getBoundingClientRect().top)),
+          ).size,
+      ),
+  ).toBe(3);
 });

@@ -10,8 +10,6 @@ import { live } from 'lit/directives/live.js';
 import { fireEvent, type HomeAssistant } from 'custom-card-helpers';
 import registerTemplates from 'ha-template';
 import styles from './styles.css';
-import workingImg from './images/purifier-working.gif';
-import standbyImg from './images/purifier-standby.png';
 import localize from './localize';
 import buildConfig from './config';
 import { fanSpeedSource } from './discovery';
@@ -41,6 +39,24 @@ export class PurifierCard extends LitElement {
   @state() private pending = false;
   @state() private error = '';
   @state() private draftPercentage: number | undefined;
+  @state() private speedExpanded = false;
+  @state() private narrow = false;
+  @state() private tiny = false;
+  private sizeObserver?: ResizeObserver;
+
+  public connectedCallback() {
+    super.connectedCallback();
+    this.sizeObserver = new ResizeObserver(([entry]) => {
+      this.narrow = entry.contentRect.width <= 420;
+      this.tiny = entry.contentRect.width <= 360;
+    });
+    this.sizeObserver.observe(this);
+  }
+
+  public disconnectedCallback() {
+    this.sizeObserver?.disconnect();
+    super.disconnectedCallback();
+  }
 
   public static get styles(): CSSResultGroup {
     return styles;
@@ -64,7 +80,7 @@ export class PurifierCard extends LitElement {
     );
   }
   public getCardSize() {
-    return this.config?.compact_view ? 5 : 8;
+    return this.config?.stats.length ? 5 : 3;
   }
   public getGridOptions() {
     return { columns: 12, rows: 'auto', min_columns: 6 };
@@ -176,29 +192,13 @@ export class PurifierCard extends LitElement {
   }
 
   private renderControls() {
+    if (!this.speedExpanded) return nothing;
     const entity = this.entity;
     const hasPercentage = !!(Number(entity?.attributes.supported_features) & 1);
     const percentage = entity?.attributes.percentage;
     const displayedPercentage = this.draftPercentage ?? percentage;
     const stops = percentageStops(entity?.attributes.percentage_step);
-    return html` <div
-      class="controls ${this.config.compact_view ? 'compact' : ''}"
-    >
-      ${
-        this.config.compact_view
-          ? this.renderAQI()
-          : html` <div class="dial" data-on=${entity?.state === 'on'}>
-              <img
-                class="image"
-                src=${entity?.state === 'on' ? workingImg : standbyImg}
-                alt=""
-                @error=${(event: Event) => {
-                  (event.target as HTMLImageElement).hidden = true;
-                }}
-              />
-              ${this.renderAQI()}
-            </div>`
-      }
+    return html`<div class="controls" id="speed-adjustment">
       ${
         hasPercentage
           ? html`<label class="speed-control"
@@ -245,12 +245,91 @@ export class PurifierCard extends LitElement {
     </div>`;
   }
 
+  private adjustSpeed(direction: number) {
+    const steps = percentageStops(this.entity?.attributes.percentage_step);
+    const current = Math.round(
+      ((this.entity?.attributes.percentage ?? 0) * steps) / 100,
+    );
+    const next = Math.max(0, Math.min(steps, current + direction));
+    void this.execute([
+      {
+        service: 'fan.set_percentage',
+        service_data: { percentage: Math.round((next * 100) / steps) },
+      },
+    ]);
+  }
+
+  private renderSpeed() {
+    const entity = this.entity;
+    const hasPercentage = !!(Number(entity?.attributes.supported_features) & 1);
+    const disabled =
+      !this.available ||
+      entity?.state !== 'on' ||
+      this.pending ||
+      typeof entity?.attributes.percentage !== 'number';
+    return html`<div class="speed-pill">
+      ${hasPercentage ? html`<button type="button" class="step-button" aria-label="Decrease fan speed" ?disabled=${disabled || entity!.attributes.percentage! <= 0} @click=${() => this.adjustSpeed(-1)}>−</button>` : nothing}
+      ${
+        hasPercentage
+          ? html`<button
+              type="button"
+              class="reading-button"
+              aria-label="Adjust fan speed"
+              aria-expanded=${String(this.speedExpanded)}
+              aria-controls="speed-adjustment"
+              ?disabled=${!this.available || this.pending}
+              @click=${() => {
+                this.speedExpanded = !this.speedExpanded;
+              }}
+            >
+              ${this.renderAQI()}
+            </button>`
+          : this.renderAQI()
+      }
+      ${hasPercentage ? html`<button type="button" class="step-button" aria-label="Increase fan speed" ?disabled=${disabled || entity!.attributes.percentage! >= 100} @click=${() => this.adjustSpeed(1)}>+</button>` : nothing}
+    </div>`;
+  }
+
+  private toolbarShortcuts(): PurifierCardShortcut[] {
+    const shortcuts = [...this.config.shortcuts];
+    for (const mode of this.entity?.attributes.preset_modes ?? []) {
+      const represented = shortcuts.some((shortcut) =>
+        shortcutActions(shortcut, this.config.entity).some(
+          (action) =>
+            action.service === 'fan.set_preset_mode' &&
+            String(action.service_data?.preset_mode).toLowerCase() ===
+              mode.toLowerCase() &&
+            (action.target?.entity_id ??
+              action.service_data?.entity_id ??
+              this.config.entity) === this.config.entity,
+        ),
+      );
+      if (!represented)
+        shortcuts.push({
+          name: localize(`preset_mode.${mode.toLowerCase()}`) ?? mode,
+          preset_mode: mode,
+          icon:
+            mode.toLowerCase() === 'auto'
+              ? 'mdi:brightness-auto'
+              : /silent|sleep/i.test(mode)
+                ? 'mdi:weather-night'
+                : /favorite/i.test(mode)
+                  ? 'mdi:star'
+                  : 'mdi:fan',
+        });
+    }
+    return shortcuts;
+  }
+
   private renderStats() {
     const stats = this.config.stats.filter(
       (stat) => stat.entity_id || stat.attribute,
     );
     if (!stats.length) return nothing;
-    return html`<div class="stats">
+    return html`<div
+      class="stats"
+      style=${`grid-template-columns:repeat(${this.narrow ? 2 : Math.min(stats.length, 5)},minmax(0,1fr))`}
+    >
       ${stats.map((stat) => {
         const raw = readValue(this.hass.states, stat, this.config.entity);
         const valid = raw !== undefined && raw !== null && raw !== '';
@@ -278,58 +357,53 @@ export class PurifierCard extends LitElement {
     if (!this.config || !this.hass) return nothing;
     const entity = this.entity;
     const disabled = !this.available || this.pending;
-    const modes = entity?.attributes.preset_modes ?? [];
-    const currentMode = entity?.attributes.preset_mode;
-    return html`<ha-card aria-busy=${String(this.pending)}>
+    const name =
+      this.config.name ??
+      entity?.attributes.friendly_name ??
+      this.config.entity;
+    const mode = entity?.attributes.preset_mode;
+    const status = [
+      this.config.show_state || !this.available
+        ? (localize(`state.${entity?.state ?? 'unavailable'}`) ??
+          entity?.state ??
+          'Unavailable')
+        : '',
+      this.config.show_preset_mode && mode
+        ? (localize(`preset_mode.${mode.toLowerCase()}`) ?? mode)
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    return html`<ha-card
+      class=${`${this.config.compact_view ? 'dense' : ''} ${this.narrow ? 'narrow' : ''} ${this.tiny ? 'tiny' : ''}`}
+      aria-busy=${String(this.pending)}
+    >
       <div class="header">
-        ${
-          this.config.show_preset_mode && modes.length
-            ? html`<label class="mode-control"
-                ><ha-icon icon="mdi:fan"></ha-icon
-                ><select
-                  aria-label="Preset mode"
-                  .value=${live(currentMode ?? '')}
-                  ?disabled=${disabled}
-                  @change=${(event: Event) => {
-                    void this.execute([
-                      {
-                        service: 'fan.set_preset_mode',
-                        service_data: {
-                          preset_mode: (event.target as HTMLSelectElement)
-                            .value,
-                        },
-                      },
-                    ]);
-                  }}
-                >
-                  ${!currentMode ? html`<option value="" disabled>—</option>` : nothing}${modes.map((mode) => html`<option .value=${mode} ?selected=${mode === currentMode}>${localize(`preset_mode.${mode.toLowerCase()}`) ?? mode}</option>`)}
-                </select></label
-              >`
-            : html`<span></span>`
-        }
         <button
           type="button"
-          class="icon-button more-info"
-          aria-label="More information"
+          class="identity"
+          aria-label=${`More information: ${name}`}
           @click=${() => this.moreInfo()}
         >
-          <ha-icon icon="mdi:dots-vertical"></ha-icon>
+          <span class="device-badge" data-on=${entity?.state === 'on'}
+            ><ha-icon icon="mdi:air-purifier"></ha-icon
+          ></span>
+          <span class="metadata">
+            ${this.config.show_name ? html`<span class="friendly-name">${name}</span>` : nothing}
+            ${status ? html`<span class="state" role="status">${status}${this.pending ? ' …' : ''}</span>` : nothing}
+          </span>
         </button>
+        ${this.renderSpeed()}
       </div>
-      ${this.renderControls()}
-      <div class="metadata">
-        ${this.config.show_name ? html`<div class="friendly-name">${this.config.name ?? entity?.attributes.friendly_name ?? this.config.entity}</div>` : nothing}
-        ${this.config.show_state || !this.available ? html`<div class="state" role="status">${localize(`state.${entity?.state ?? 'unavailable'}`) ?? entity?.state ?? 'Unavailable'}${this.pending ? ' …' : ''}</div>` : nothing}
-      </div>
-      ${this.error ? html`<div class="error" role="alert">${this.error}</div>` : nothing}
-      ${this.renderStats()}
       ${
         this.config.show_toolbar
           ? html`<div class="toolbar">
               <button
                 type="button"
-                class="icon-button power ${entity?.state === 'on' ? 'active' : ''}"
+                class="control-button power ${entity?.state === 'on' ? 'active' : ''}"
                 aria-label=${localize('common.toggle_power') ?? 'Toggle power'}
+                aria-pressed=${String(entity?.state === 'on')}
+                title=${localize(entity?.state === 'on' ? 'common.turn_off' : 'common.turn_on')}
                 ?disabled=${disabled}
                 @click=${() => {
                   void this.execute([
@@ -343,28 +417,39 @@ export class PurifierCard extends LitElement {
                 <ha-icon icon="mdi:power"></ha-icon>
               </button>
               <div class="shortcuts">
-                ${this.config.shortcuts.map((shortcut) => {
+                ${this.toolbarShortcuts().map((shortcut) => {
                   const active = shortcutActive(
                     shortcut,
                     this.hass.states,
                     this.config.entity,
                   );
+                  const label =
+                    shortcut.name ??
+                    shortcut.preset_mode ??
+                    shortcut.service ??
+                    'Shortcut';
                   return html`<button
                     type="button"
-                    class="icon-button ${active ? 'active' : ''}"
-                    aria-label=${shortcut.name ?? shortcut.preset_mode ?? shortcut.service ?? 'Shortcut'}
+                    class="control-button ${active ? 'active' : ''}"
+                    aria-label=${label}
                     aria-pressed=${String(active)}
-                    title=${shortcut.name ?? ''}
+                    title=${label}
                     ?disabled=${disabled}
                     @click=${() => this.runShortcut(shortcut)}
                   >
-                    ${shortcut.icon ? html`<ha-icon .icon=${shortcut.icon}></ha-icon>` : html`<span>${shortcut.name ?? shortcut.preset_mode ?? '▶'}</span>`}
+                    ${shortcut.icon ? html`<ha-icon .icon=${shortcut.icon}></ha-icon>` : nothing}<span
+                      class="control-label"
+                      >${label}</span
+                    >
                   </button>`;
                 })}
               </div>
             </div>`
           : nothing
       }
+      ${this.renderControls()}
+      ${this.error ? html`<div class="error" role="alert">${this.error}</div>` : nothing}
+      ${this.renderStats()}
     </ha-card>`;
   }
 }

@@ -13,6 +13,7 @@ const labels = {
   pm10: 'PM 10',
   temperature: 'Temperature',
   humidity: 'Humidity',
+  filter: 'Filter remaining',
 };
 const entry = (entity_id, device_id = 'purifier', extra = {}) => ({
   entity_id,
@@ -69,6 +70,67 @@ test('detects legacy fan attributes and keeps separate attribute statistics dist
     new Set(),
   );
   assert.equal(merged.stats.length, 4);
+});
+
+test('filter detection prefers remaining percent over remaining time on the same device', () => {
+  const withFilters = {
+    ...states,
+    'sensor.renamed_filter': sensor(undefined, '%'),
+    'sensor.days_left': sensor(undefined, 'days'),
+    'sensor.other_filter': sensor(undefined, '%'),
+  };
+  const entries = [
+    ...registry,
+    entry('sensor.renamed_filter', 'purifier', {
+      translation_key: 'filter_life_remaining',
+    }),
+    entry('sensor.days_left', 'purifier', {
+      translation_key: 'filter_lifetime_remaining',
+    }),
+    entry('sensor.other_filter', 'another-device', {
+      translation_key: 'filter_life_remaining',
+    }),
+  ];
+  const result = detectReadings(withFilters, entries, fan, labels);
+  assert.deepEqual(result.stats.at(-1), {
+    entity_id: 'sensor.renamed_filter',
+    subtitle: 'Filter remaining',
+    unit: '%',
+  });
+  const custom = {
+    entity: fan,
+    stats: [
+      { entity_id: 'sensor.renamed_filter', subtitle: 'My filter', unit: '%' },
+    ],
+  };
+  const merged = mergeReadings(
+    custom,
+    result,
+    withFilters,
+    entries,
+    true,
+    new Set(),
+  );
+  assert.equal(
+    merged.stats.filter(
+      (stat) => readingKind(withFilters, stat, entries) === 'filter',
+    ).length,
+    1,
+  );
+  assert.equal(merged.stats[0].subtitle, 'My filter');
+});
+
+test('legacy filter life remaining is detected without converting it to filter usage', () => {
+  const legacy = {
+    [fan]: { state: 'on', attributes: { filter_life_remaining: 0 } },
+  };
+  assert.deepEqual(detectReadings(legacy, [], fan, labels).stats, [
+    {
+      attribute: 'filter_life_remaining',
+      subtitle: 'Filter remaining',
+      unit: '%',
+    },
+  ]);
 });
 test('does not relabel an AQI index or an unknown attribute as a PM2.5 concentration', () => {
   const legacy = {

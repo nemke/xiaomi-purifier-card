@@ -14,7 +14,8 @@ export interface RegistryEntity {
   translation_key?: string;
   original_name?: string;
 }
-export type ReadingKind = 'pm25' | 'pm10' | 'temperature' | 'humidity';
+export type ReadingKind =
+  'pm25' | 'pm10' | 'temperature' | 'humidity' | 'filter';
 export interface DetectedReadings {
   main?: PurifierAQI;
   stats: PurifierCardStat[];
@@ -27,6 +28,12 @@ const aliases: Record<ReadingKind | 'rpm', string[]> = {
   pm10: ['pm10', 'particulatematter10'],
   temperature: ['temperature', 'ambienttemperature'],
   humidity: ['humidity', 'relativehumidity'],
+  filter: [
+    'filterliferemaining',
+    'filterlifetimeremaining',
+    'filterremaining',
+    'filterleft',
+  ],
   rpm: ['motorspeed', 'fanspeed', 'rpm', 'motorspeedrpm'],
 };
 
@@ -117,6 +124,10 @@ export function detectReadings(
       .map((item) => ({
         item,
         score:
+          (kind === 'filter' &&
+          states[item.entity_id].attributes.unit_of_measurement === '%'
+            ? 20
+            : 0) +
           (states[item.entity_id].attributes.device_class === kind ? 100 : 0) +
           (aliases[kind].includes(normalize(item.translation_key ?? ''))
             ? 40
@@ -146,8 +157,15 @@ export function detectReadings(
     pm10: ['pm10', 'pm10_density'],
     temperature: ['temperature'],
     humidity: ['humidity'],
+    filter: ['filter_life_remaining', 'filter_life', 'filter_left'],
   };
-  for (const kind of ['pm25', 'pm10', 'temperature', 'humidity'] as const) {
+  for (const kind of [
+    'pm25',
+    'pm10',
+    'temperature',
+    'humidity',
+    'filter',
+  ] as const) {
     const sensor = pick(kind);
     if (sensor)
       stats.push({
@@ -166,7 +184,9 @@ export function detectReadings(
           subtitle: labels[kind],
           unit:
             attributes?.[`${attribute}_unit`] ??
-            (kind === 'humidity'
+            (kind === 'humidity' ||
+            attribute === 'filter_life_remaining' ||
+            attribute === 'filter_life'
               ? '%'
               : kind === 'pm25' || kind === 'pm10'
                 ? 'μg/m³'

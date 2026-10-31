@@ -1,13 +1,13 @@
-Adds automatic purifier reading discovery with editable defaults.
+Compact card layout and automatic filter-remaining detection.
 
-- Fan speed is the default main reading: measured motor RPM when detected, otherwise the fan percentage when available. An explicitly selected sensor remains an override.
-- The editor detects PM2.5, PM10, temperature, and humidity sensors belonging to the selected HA device. Supported legacy fan attributes are also recognized.
-- Sensor units come from HA metadata. Disabled, missing, and equally plausible sensors are not guessed.
-- **Detect missing sensors** fills missing readings in an existing card while retaining custom sources, labels, units, templates, and shortcuts.
-- Switching the selected purifier replaces defaults generated during the current editing session. Explicit manual choices remain preserved.
-- Late discovery results cannot overwrite active typing or populate a newly selected fan with the previous fan’s sensors.
-- Includes the v0.1.4 typing fix and the earlier 4 Pro fractional-step slider fix.
+- Replaces the large purifier artwork and dial with a compact header: device name/status on the left and fan speed on the right.
+- Adds plus/minus buttons for supported speed steps. Tap the reading to expand the percentage slider.
+- Uses a rounded power/preset strip; missing supported presets are supplied automatically alongside configured shortcuts.
+- Keeps all five statistics in a row on wider cards; narrow cards use two columns with the final odd statistic spanning the last row.
+- Detects filter life remaining from the same device, preferring percent over remaining time. Existing labels and selected sources are preserved without duplicate filter statistics.
+- Retains manual overrides, templates, the typing fix, and the 4 Pro fractional-step fix.
+- Removes the artwork from the JavaScript bundle, reducing the uncompressed build from about 2.35MB to about 97KB.
 
-Validated with 27 model tests and 32 Chromium browser tests. Physical sensor discovery still needs verification against the user’s actual HA device registry.
+Validation: 29 model tests and 35 Chromium browser tests, including preset controls, speed steps, filter detection, and desktop/phone layouts.
 
-Update through HACS and reload the frontend. Open the card editor and click **Detect missing sensors** for an existing card. All fields remain editable. If the main reading is already configured as PM2.5, clear that source to return to automatic fan speed, then run detection to prefer a measured RPM sensor.
+Update through HACS and reload the frontend. The compact layout is applied automatically to existing cards. In the card editor, click **Detect missing sensors** to add filter remaining if it is not already configured. Every detected statistic remains editable.
