@@ -1,15 +1,15 @@
 type: custom:xiaomi-purifier-card
 entity: fan.mi_air_purifier_3c
 aqi:
-  entity_id: sensor.mi_air_purifier_3c_pm2_5
-  unit: PM 2.5
+  entity_id: sensor.mi_air_purifier_3c_motor_speed
+  unit: RPM
 stats:
+  - entity_id: sensor.mi_air_purifier_3c_pm2_5
+    unit: μg/m³
+    subtitle: PM 2.5
   - entity_id: sensor.mi_air_purifier_3c_filter_life_remaining
     unit: '%'
     subtitle: Filter Remaining
-  - entity_id: sensor.mi_air_purifier_3c_motor_speed
-    unit: RPM
-    subtitle: Motor speed
   - entity_id: sensor.mi_air_purifier_3c_filter_use
     unit: Hours
     subtitle: Filter use

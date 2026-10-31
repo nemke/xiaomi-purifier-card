@@ -6,7 +6,8 @@ A Home Assistant dashboard card for Xiaomi air purifiers, built with TypeScript 
 
 ## Features
 
-- Particulate reading, name, state, statistics, and power/preset controls.
+- Fan speed as the default main reading, plus name, state, statistics, and power/preset controls.
+- Automatic PM2.5, PM10, temperature, and humidity discovery from the selected purifier’s HA device.
 - Responsive layout with its own sizing; no dependency on HA's old `round-slider` element.
 - Separate sensor and number entities update without reloading the dashboard.
 - Shortcuts for native percentages, discrete levels, RPM, or custom action sequences.
@@ -37,9 +38,6 @@ The 4 Pro and 3C examples are covered by automated tests with **simulated HA sta
 ```yaml
 type: custom:xiaomi-purifier-card
 entity: fan.your_purifier
-aqi:
-  entity_id: sensor.your_purifier_pm2_5
-  unit: PM 2.5
 stats:
   - entity_id: sensor.your_purifier_filter_life_remaining
     unit: '%'
@@ -71,6 +69,10 @@ Use [the 4 Pro example](examples/4-pro.yaml) or [the 3C example](examples/3c.yam
 
 ## Configuration
 
+The visual editor detects available readings when configuring a purifier. The main reading defaults to measured motor RPM, or the fan’s percentage when RPM is not exposed. PM2.5, PM10, temperature, and humidity are suggested as statistics. Detection uses device membership and sensor metadata, so renamed entities are supported. Disabled, missing, or ambiguous sensors are not guessed. Known numeric fan attributes are also supported for older integrations.
+
+For an existing card, click **Detect missing sensors** in the editor. Existing sensor choices, custom labels, units, templates, and shortcuts are preserved. Remove or change any suggestion to override it; state refreshes do not reapply removed defaults. Sensor discovery does not overwrite a field while you are typing.
+
 The visual editor includes **Main reading** and **Statistics** sections. Choose a sensor for the center reading, then use **Add statistic** to add further readings. Each statistic has an editable label and unit, ordering buttons, and a remove button. Sensor inputs offer suggestions from HA; you can also type an entity ID. See the [editor preview](docs/editor.png).
 
 Existing templates, fan attributes, and shortcuts are retained when editing labels, units, or appearance. Choosing a new sensor replaces that row's attribute source. Advanced templates and shortcut actions remain configurable in YAML.
@@ -89,6 +91,8 @@ Existing templates, fan attributes, and shortcuts are retained when editing labe
 | `shortcuts`        | `[]`                 | List of control buttons                    |
 
 ### Reading sources
+
+Leaving the main reading source empty shows fan speed when the fan exposes a measured motor-speed attribute or percentage. An explicit `aqi` source overrides that default.
 
 Both `aqi` and each statistic accept `entity_id`, `attribute`, and `unit`. Without `entity_id`, an attribute is read from the fan. Combining them reads an attribute of the specified entity. Nested attribute paths are supported. Units default to the source sensor's unit where available. Missing, unknown, and unavailable readings show `—`; real zero values remain zero.
 

@@ -14,6 +14,7 @@ import workingImg from './images/purifier-working.gif';
 import standbyImg from './images/purifier-standby.png';
 import localize from './localize';
 import buildConfig from './config';
+import { fanSpeedSource } from './discovery';
 import {
   prepareActions,
   readValue,
@@ -157,8 +158,12 @@ export class PurifierCard extends LitElement {
   }
 
   private renderAQI() {
-    const source = this.config.aqi;
-    if (!source.entity_id && !source.attribute) return nothing;
+    const configured = this.config.aqi;
+    const source =
+      configured.entity_id || configured.attribute
+        ? configured
+        : fanSpeedSource(this.hass.states, this.config.entity);
+    if (!source) return nothing;
     const raw = readValue(this.hass.states, source, this.config.entity);
     const value =
       raw === undefined || raw === null || raw === '' ? '—' : String(raw);

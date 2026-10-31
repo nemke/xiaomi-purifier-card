@@ -5,8 +5,8 @@ show_state: true
 show_name: true
 show_toolbar: true
 aqi:
-  entity_id: sensor.zhimi_airp_vb4_pm2_5
-  unit: PM 2.5
+  entity_id: sensor.zhimi_airp_vb4_motor_speed
+  unit: RPM
 stats:
   - entity_id: sensor.zhimi_airp_vb4_pm10
     unit: μg/m³
@@ -14,9 +14,6 @@ stats:
   - entity_id: sensor.zhimi_airp_vb4_pm2_5
     unit: μg/m³
     subtitle: PM 2.5
-  - entity_id: sensor.zhimi_airp_vb4_motor_speed
-    unit: RPM
-    subtitle: Motor speed
   - entity_id: sensor.zhimi_airp_vb4_filter_life_remaining
     unit: '%'
     subtitle: Filter remaining
