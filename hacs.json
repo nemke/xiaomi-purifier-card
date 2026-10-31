@@ -2,5 +2,6 @@
   "name": "Xiaomi Purifier Card",
   "render_readme": true,
   "filename": "xiaomi-purifier-card.js",
+  "hide_default_branch": true,
   "homeassistant": "2026.10.4"
 }

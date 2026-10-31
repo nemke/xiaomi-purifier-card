@@ -1,4 +1,11 @@
-First release of Xiaomi Purifier Card, based on denysdovhan/purifier-card.
+HACS catalog preparation release, based on denysdovhan/purifier-card.
+
+- Added the official HACS validation workflow with every check enabled.
+- Enabled issue reporting and added repository search topics.
+- Disabled downloading the unbuilt default branch in HACS; use a compiled release.
+- Prepared for submission to the HACS default catalog. Listing remains subject to maintainer review.
+
+Includes the fixes from v0.1.0:
 
 - Independent card name: `custom:xiaomi-purifier-card`; can coexist with the original.
 - Fixed-size responsive display without the removed HA round-slider dependency.
