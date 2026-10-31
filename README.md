@@ -12,7 +12,7 @@ A Home Assistant dashboard card for Xiaomi air purifiers, built with TypeScript 
 - Shortcuts for native percentages, discrete levels, RPM, or custom action sequences.
 - Numeric range/step validation, ordered commands, and visible command errors.
 - Compact mode, Jinja statistic templates, translations, and `--pc-*` theme variables.
-- Basic visual editor; statistics and shortcuts are configured in YAML.
+- Visual editor for the main reading, statistics, and appearance; custom shortcuts and templates can be configured in YAML.
 
 ![Preview with simulated HA states](docs/preview.png)
 
@@ -70,6 +70,10 @@ Use [the 4 Pro example](examples/4-pro.yaml) or [the 3C example](examples/3c.yam
 `filter_life_remaining` is remaining filter life, so it should be labelled **Filter remaining**. `aqi` is the inherited configuration key; displaying PM2.5 concentration does not calculate an air quality index.
 
 ## Configuration
+
+The visual editor includes **Main reading** and **Statistics** sections. Choose a sensor for the center reading, then use **Add statistic** to add further readings. Each statistic has an editable label and unit, ordering buttons, and a remove button. Sensor inputs offer suggestions from HA; you can also type an entity ID. See the [editor preview](docs/editor.png).
+
+Existing templates, fan attributes, and shortcuts are retained when editing labels, units, or appearance. Choosing a new sensor replaces that row's attribute source. Advanced templates and shortcut actions remain configurable in YAML.
 
 | Option             | Default              | Meaning                                    |
 | ------------------ | -------------------- | ------------------------------------------ |

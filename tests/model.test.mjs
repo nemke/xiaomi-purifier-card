@@ -6,7 +6,16 @@ import {
   referencedEntities,
   shortcutActions,
   shortcutActive,
+  percentageStops,
 } from '../src/model.ts';
+
+test('maps repeating percentage steps to integer slider stops', () => {
+  assert.equal(percentageStops(33.333333333333336), 3);
+  assert.equal(percentageStops(16.666666666666668), 6);
+  assert.equal(percentageStops(1), 100);
+  assert.equal(percentageStops(undefined), 100);
+  assert.equal(percentageStops(0), 100);
+});
 
 const fan = 'fan.purifier';
 const entity = (state, attributes = {}) => ({ state, attributes });

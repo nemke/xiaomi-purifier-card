@@ -1,19 +1,34 @@
 .card-config {
+  display: flex;
   flex-direction: column;
-  display: flex;
-  gap: 10px;
+  gap: 16px;
+  color: var(--primary-text-color);
 }
-
-label {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+* {
+  box-sizing: border-box;
 }
-select {
-  flex: 1;
+.field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   min-width: 0;
-  padding: 10px;
+  gap: 6px;
+  margin-block: 12px;
+}
+.field > span {
+  font-size: 14px;
+}
+input,
+select,
+button {
   font: inherit;
+}
+input[type='text'],
+select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px;
   color: var(--primary-text-color);
   background: var(--card-background-color);
   border: 1px solid var(--divider-color);
@@ -22,20 +37,69 @@ select {
 input {
   accent-color: var(--primary-color);
 }
-p {
-  color: var(--secondary-text-color);
-}
-
 .option {
   display: flex;
+  gap: 10px;
   align-items: center;
+  min-height: 44px;
 }
-
-.option ha-switch {
-  margin-right: 10px;
+.fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
 }
-
-.option ha-select,
-.option paper-input {
+details {
+  border-top: 1px solid var(--divider-color);
+  padding-top: 12px;
+}
+summary {
+  cursor: pointer;
+  font-weight: 500;
+  min-height: 32px;
+}
+.hint {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--secondary-text-color);
+}
+.stat-editor {
+  min-width: 0;
+  margin: 12px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--divider-color);
+  border-radius: 8px;
+}
+legend {
+  padding-inline: 6px;
+}
+.row-actions {
+  display: flex;
+  gap: 8px;
+}
+button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--primary-text-color);
+  background: var(--secondary-background-color);
+  border: 1px solid var(--divider-color);
+  border-radius: 6px;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.remove {
+  margin-inline-start: auto;
+}
+.add {
   width: 100%;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
 }

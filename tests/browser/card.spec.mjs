@@ -68,6 +68,91 @@ test('supports percentage controls including zero and compact view', async ({
   expect(await page.evaluate(() => window.calls[0].data.percentage)).toBe(0);
 });
 
+test('resynchronizes the speed thumb when a mode change reports an unchanged percentage', async ({
+  page,
+}) => {
+  await page.evaluate(() =>
+    window.updateEntity('fan.zhimi_airp_vb4', 'on', {
+      ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
+      percentage: 100,
+      percentage_step: 1,
+      supported_features: 9,
+    }),
+  );
+  const card = page.locator('xiaomi-purifier-card').first();
+  const slider = card.getByRole('slider', { name: 'Fan speed' });
+  await expect(slider).toHaveValue('100');
+  await slider.fill('65');
+  await card
+    .getByRole('combobox', { name: 'Preset mode' })
+    .selectOption('Favorite');
+  await page.evaluate(() =>
+    window.updateEntity('fan.zhimi_airp_vb4', 'on', {
+      ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
+      preset_mode: 'Favorite',
+      percentage: 100,
+    }),
+  );
+  await expect(card.locator('.speed-control > span')).toHaveText('100%');
+  await expect(slider).toHaveValue('100');
+});
+
+test('the real 4 Pro fractional step reaches 100 percent and sends integer percentages', async ({
+  page,
+}) => {
+  await page.evaluate(() =>
+    window.updateEntity('fan.zhimi_airp_vb4', 'on', {
+      ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
+      preset_mode: 'Favorite',
+      percentage: 100,
+      percentage_step: 33.333333333333336,
+      supported_features: 57,
+    }),
+  );
+  const card = page.locator('xiaomi-purifier-card').first();
+  const slider = card.getByRole('slider', { name: 'Fan speed' });
+  await expect(slider).toHaveAttribute('max', '3');
+  await expect(slider).toHaveValue('3');
+  await expect(card.locator('.speed-control > span')).toHaveText('100%');
+  await slider.fill('2');
+  await expect.poll(() => page.evaluate(() => window.calls.length)).toBe(1);
+  expect(await page.evaluate(() => window.calls[0].data.percentage)).toBe(67);
+  await page.evaluate(() =>
+    window.updateEntity('fan.zhimi_airp_vb4', 'on', {
+      ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
+      percentage: 66,
+    }),
+  );
+  await expect(slider).toHaveValue('2');
+  await expect(card.locator('.speed-control > span')).toHaveText('66%');
+});
+
+test('sensor refreshes do not interrupt a speed adjustment', async ({
+  page,
+}) => {
+  await page.evaluate(() =>
+    window.updateEntity('fan.zhimi_airp_vb4', 'on', {
+      ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
+      percentage: 100,
+      percentage_step: 1,
+      supported_features: 57,
+    }),
+  );
+  const card = page.locator('xiaomi-purifier-card').first();
+  const slider = card.getByRole('slider', { name: 'Fan speed' });
+  await slider.evaluate((input) => {
+    input.value = '65';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.evaluate(() =>
+    window.updateEntity('sensor.zhimi_airp_vb4_motor_speed', 800),
+  );
+  await expect(slider).toHaveValue('65');
+  await expect(card.locator('.speed-control > span')).toHaveText('65%');
+  await slider.dispatchEvent('pointercancel');
+  await expect(slider).toHaveValue('100');
+});
+
 test('exposes HA websocket error messages and clears pending state', async ({
   page,
 }) => {
@@ -245,10 +330,121 @@ test('basic editor reflects supplied settings and preserves advanced YAML on cha
     document.body.append(editor);
   });
   const editor = page.locator('xiaomi-purifier-card-editor');
-  await expect(editor.locator('input').nth(0)).toBeChecked();
-  await expect(editor.locator('input').nth(1)).not.toBeChecked();
-  await editor.locator('input').nth(1).check();
+  await editor.locator('summary').filter({ hasText: 'Appearance' }).click();
+  await expect(
+    editor.getByRole('checkbox', { name: 'Compact View' }),
+  ).toBeChecked();
+  await expect(
+    editor.getByRole('checkbox', { name: 'Show Name' }),
+  ).not.toBeChecked();
+  await editor.getByRole('checkbox', { name: 'Show Name' }).check();
   expect(await page.evaluate(() => window.edited.shortcuts.length)).toBe(5);
+});
+
+test('visual editor can add a main reading and statistics to a bare fan card', async ({
+  page,
+}) => {
+  await page.evaluate(async () => {
+    const editor = await customElements
+      .get('xiaomi-purifier-card')
+      .getConfigElement();
+    editor.hass = window.hass;
+    const config = {
+      type: 'custom:xiaomi-purifier-card',
+      entity: 'fan.zhimi_airp_vb4',
+    };
+    editor.setConfig(config);
+    window.cards[0].setConfig(config);
+    editor.addEventListener('config-changed', (event) => {
+      window.edited = event.detail.config;
+      window.cards[0].setConfig(event.detail.config);
+    });
+    document.body.append(editor);
+  });
+  const editor = page.locator('xiaomi-purifier-card-editor');
+  const main = editor.getByRole('combobox', {
+    name: 'Reading sensor',
+    exact: true,
+  });
+  await main.fill('sensor.zhimi_airp_vb4_pm2_5');
+  await main.press('Tab');
+  await expect(
+    page.locator('xiaomi-purifier-card').first().locator('.number-on'),
+  ).toHaveText('5');
+  await editor
+    .getByRole('button', { name: 'Add statistic', exact: true })
+    .click();
+  const source = editor.getByRole('combobox', {
+    name: 'Statistic sensor 1',
+    exact: true,
+  });
+  await source.fill('sensor.zhimi_airp_vb4_motor_speed');
+  await source.press('Tab');
+  await editor
+    .getByRole('textbox', { name: 'Label 1', exact: true })
+    .fill('Motor speed');
+  await editor
+    .getByRole('textbox', { name: 'Unit 1', exact: true })
+    .fill('RPM');
+  await editor
+    .getByRole('textbox', { name: 'Unit 1', exact: true })
+    .press('Tab');
+  await expect(
+    page.locator('xiaomi-purifier-card').first().locator('.stats-block'),
+  ).toContainText('Motor speed');
+  expect(await page.evaluate(() => window.edited.stats[0])).toMatchObject({
+    entity_id: 'sensor.zhimi_airp_vb4_motor_speed',
+    subtitle: 'Motor speed',
+    unit: 'RPM',
+  });
+  await editor
+    .getByRole('button', { name: 'Remove statistic 1', exact: true })
+    .click();
+  expect(await page.evaluate(() => window.edited.stats.length)).toBe(0);
+});
+
+test('editing and reordering statistics retains templates, attributes, and shortcuts', async ({
+  page,
+}) => {
+  await page.evaluate(async () => {
+    const editor = await customElements
+      .get('xiaomi-purifier-card')
+      .getConfigElement();
+    editor.hass = window.hass;
+    editor.setConfig({
+      ...window.configs[0],
+      stats: [
+        {
+          attribute: 'motor_speed',
+          subtitle: 'Motor',
+          unit: 'RPM',
+          value_template: '{{ value }}',
+        },
+        { entity_id: 'sensor.zhimi_airp_vb4_pm2_5', subtitle: 'PM 2.5' },
+      ],
+    });
+    editor.addEventListener('config-changed', (event) => {
+      window.edited = event.detail.config;
+    });
+    document.body.append(editor);
+  });
+  const editor = page.locator('xiaomi-purifier-card-editor');
+  await editor
+    .getByRole('textbox', { name: 'Label 1', exact: true })
+    .fill('Motor speed');
+  await editor
+    .getByRole('textbox', { name: 'Label 1', exact: true })
+    .press('Tab');
+  await editor
+    .getByRole('button', { name: 'Move statistic down 1', exact: true })
+    .click();
+  const edited = await page.evaluate(() => window.edited);
+  expect(edited.stats[1]).toMatchObject({
+    attribute: 'motor_speed',
+    subtitle: 'Motor speed',
+    value_template: '{{ value }}',
+  });
+  expect(edited.shortcuts.length).toBe(5);
 });
 
 for (const width of [320, 768, 1280])

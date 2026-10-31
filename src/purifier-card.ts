@@ -6,6 +6,7 @@ import {
   type CSSResultGroup,
 } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { live } from 'lit/directives/live.js';
 import { fireEvent, type HomeAssistant } from 'custom-card-helpers';
 import registerTemplates from 'ha-template';
 import styles from './styles.css';
@@ -19,6 +20,7 @@ import {
   referencedEntities,
   shortcutActions,
   shortcutActive,
+  percentageStops,
 } from './model';
 import type {
   PurifierAction,
@@ -37,6 +39,7 @@ export class PurifierCard extends LitElement {
   @state() private config!: PurifierCardConfig;
   @state() private pending = false;
   @state() private error = '';
+  @state() private draftPercentage: number | undefined;
 
   public static get styles(): CSSResultGroup {
     return styles;
@@ -78,6 +81,19 @@ export class PurifierCard extends LitElement {
         (id) => previous.states[id] !== this.hass.states[id],
       )
     );
+  }
+
+  protected willUpdate(changed: PropertyValues) {
+    const previous = changed.get('hass') as HomeAssistant | undefined;
+    const previousFan = previous?.states[this.config.entity];
+    if (
+      previousFan &&
+      (previousFan.attributes.preset_mode !==
+        this.entity?.attributes.preset_mode ||
+        this.entity?.state !== 'on')
+    ) {
+      this.draftPercentage = undefined;
+    }
   }
 
   private moreInfo(entityId = this.config.entity) {
@@ -158,6 +174,8 @@ export class PurifierCard extends LitElement {
     const entity = this.entity;
     const hasPercentage = !!(Number(entity?.attributes.supported_features) & 1);
     const percentage = entity?.attributes.percentage;
+    const displayedPercentage = this.draftPercentage ?? percentage;
+    const stops = percentageStops(entity?.attributes.percentage_step);
     return html` <div
       class="controls ${this.config.compact_view ? 'compact' : ''}"
     >
@@ -179,23 +197,39 @@ export class PurifierCard extends LitElement {
       ${
         hasPercentage
           ? html`<label class="speed-control"
-              ><span>${percentage ?? '—'}%</span
+              ><span>${displayedPercentage ?? '—'}%</span
               ><input
                 type="range"
                 aria-label="Fan speed"
+                aria-valuetext=${`${displayedPercentage ?? 0}%`}
                 min="0"
-                max="100"
-                step=${entity?.attributes.percentage_step || 1}
-                .value=${String(percentage ?? 0)}
+                max=${stops}
+                step="1"
+                .value=${live(String(Math.round(((displayedPercentage ?? 0) * stops) / 100)))}
                 ?disabled=${!this.available || entity?.state !== 'on' || this.pending}
+                @input=${(event: Event) => {
+                  this.draftPercentage = Math.round(
+                    (Number((event.target as HTMLInputElement).value) * 100) /
+                      stops,
+                  );
+                }}
+                @pointercancel=${() => {
+                  this.draftPercentage = undefined;
+                }}
+                @blur=${() => {
+                  this.draftPercentage = undefined;
+                }}
                 @change=${(event: Event) => {
+                  const percentage = Math.round(
+                    (Number((event.target as HTMLInputElement).value) * 100) /
+                      stops,
+                  );
+                  this.draftPercentage = undefined;
                   void this.execute([
                     {
                       service: 'fan.set_percentage',
                       service_data: {
-                        percentage: Number(
-                          (event.target as HTMLInputElement).value,
-                        ),
+                        percentage,
                       },
                     },
                   ]);
@@ -249,7 +283,7 @@ export class PurifierCard extends LitElement {
                 ><ha-icon icon="mdi:fan"></ha-icon
                 ><select
                   aria-label="Preset mode"
-                  .value=${currentMode ?? ''}
+                  .value=${live(currentMode ?? '')}
                   ?disabled=${disabled}
                   @change=${(event: Event) => {
                     void this.execute([

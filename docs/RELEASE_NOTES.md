@@ -1,21 +1,13 @@
-HACS catalog preparation release, based on denysdovhan/purifier-card.
+Fixes the 4 Pro slider mismatch and adds visual configuration for readings and statistics.
 
-- Added the official HACS validation workflow with every check enabled.
-- Enabled issue reporting and added repository search topics.
-- Disabled downloading the unbuilt default branch in HACS; use a compiled release.
-- Prepared for submission to the HACS default catalog. Listing remains subject to maintainer review.
+- Fixed the real 4 Pro `percentage_step: 33.333333333333336` case, where a native fractional range could place a reported 100% value at roughly two-thirds. The slider now uses integer positions and converts them to HA percentages.
+- Reconciles the thumb and preset selector with the reported HA state, including when a mode change leaves the percentage unchanged.
+- Shows the draft percentage while adjusting and preserves that draft during independent sensor refreshes.
+- Adds **Main reading** and **Statistics** sections to the visual editor, with sensor suggestions, labels, units, ordering, and removal.
+- Preserves existing shortcuts, templates, and attribute sources when editing other settings.
 
-Includes the fixes from v0.1.0:
+Validated with 12 model tests and 20 Chromium browser tests, including the device attributes supplied from a real 4 Pro. Physical operation still needs verification after installation.
 
-- Independent card name: `custom:xiaomi-purifier-card`; can coexist with the original.
-- Fixed-size responsive display without the removed HA round-slider dependency.
-- Independent sensor and number-entity updates, including zero and unavailable values.
-- Ordered, awaited shortcuts with preserved service data and targets, numeric range/step validation, and visible errors.
-- Legacy `speed` shortcuts work as preset aliases; active shortcuts match both preset and value.
-- Basic editor preserves advanced configuration and reflects existing visibility settings.
-- Preserves templates, translations, and `--pc-*` theme variables.
+Update the card through HACS and reload the frontend. Existing YAML remains supported. To add statistics without YAML, edit the card and open **Statistics → Add statistic**.
 
-Install as a custom HACS **Dashboard** repository: `nemke/xiaomi-purifier-card`.
-Replace the card type with `custom:xiaomi-purifier-card`; see `examples/` for 4 Pro and 3C configurations.
-
-Validated with automated unit tests and Chromium browser tests using simulated Home Assistant states. Actual device operation on HA 2026.10.4 still needs verification. Xiaomi support depends on the entities and capabilities exposed by the device's HA integration; this release does not claim hardware testing of every model.
+The broader UI layout proposal is separate from this patch; the card retains its existing appearance.
