@@ -1,5 +1,14 @@
 import { test, expect } from '@playwright/test';
 
+async function expandEditor(editor) {
+  await editor.evaluate((element) => {
+    for (const details of element.shadowRoot.querySelectorAll(
+      '.stat-editor, .stat-options, .main-reading',
+    ))
+      details.open = true;
+  });
+}
+
 test.beforeEach(async ({ page }) => {
   page.on('pageerror', (error) => {
     throw error;
@@ -102,10 +111,18 @@ test('automatically fills measured RPM and the four same-device statistics', asy
 }) => {
   const editor = await mountEditor(page);
   await expect(
-    editor.getByRole('combobox', { name: 'Reading sensor', exact: true }),
+    editor.getByRole('combobox', {
+      includeHidden: true,
+      name: 'Reading sensor',
+      exact: true,
+    }),
   ).toHaveValue('sensor.zhimi_airp_vb4_motor_speed');
   await expect(
-    editor.getByRole('textbox', { name: 'Reading unit or label', exact: true }),
+    editor.getByRole('textbox', {
+      includeHidden: true,
+      name: 'Reading unit or label',
+      exact: true,
+    }),
   ).toHaveValue('RPM');
   await expect(editor.locator('.stat-editor')).toHaveCount(4);
   expect(
@@ -129,20 +146,33 @@ test('manual changes survive refreshes and re-detection adds only missing readin
 }) => {
   const editor = await mountEditor(page);
   await expect(editor.locator('.stat-editor')).toHaveCount(4);
+  await expandEditor(editor);
   await editor
-    .getByRole('textbox', { name: 'Label 1', exact: true })
+    .getByRole('textbox', { includeHidden: true, name: 'Label 1', exact: true })
     .fill('My particulate reading');
   await editor
-    .getByRole('textbox', { name: 'Label 1', exact: true })
+    .getByRole('textbox', { includeHidden: true, name: 'Label 1', exact: true })
     .press('Tab');
   await editor
-    .getByRole('combobox', { name: 'Reading sensor', exact: true })
+    .getByRole('combobox', {
+      includeHidden: true,
+      name: 'Reading sensor',
+      exact: true,
+    })
     .fill('sensor.zhimi_airp_vb4_pm2_5');
   await editor
-    .getByRole('combobox', { name: 'Reading sensor', exact: true })
+    .getByRole('combobox', {
+      includeHidden: true,
+      name: 'Reading sensor',
+      exact: true,
+    })
     .press('Tab');
   await expect(
-    editor.getByRole('textbox', { name: 'Reading unit or label', exact: true }),
+    editor.getByRole('textbox', {
+      includeHidden: true,
+      name: 'Reading unit or label',
+      exact: true,
+    }),
   ).toHaveValue('μg/m³');
   await editor
     .getByRole('button', { name: 'Remove statistic 4', exact: true })
@@ -160,10 +190,18 @@ test('manual changes survive refreshes and re-detection adds only missing readin
     .click();
   await expect(editor.locator('.stat-editor')).toHaveCount(4);
   await expect(
-    editor.getByRole('textbox', { name: 'Label 1', exact: true }),
+    editor.getByRole('textbox', {
+      includeHidden: true,
+      name: 'Label 1',
+      exact: true,
+    }),
   ).toHaveValue('My particulate reading');
   await expect(
-    editor.getByRole('combobox', { name: 'Reading sensor', exact: true }),
+    editor.getByRole('combobox', {
+      includeHidden: true,
+      name: 'Reading sensor',
+      exact: true,
+    }),
   ).toHaveValue('sensor.zhimi_airp_vb4_pm2_5');
   expect(await page.evaluate(() => window.registryCalls)).toBe(2);
 });
@@ -174,7 +212,7 @@ test('switching fan replaces generated defaults and omits unsupported statistics
   const editor = await mountEditor(page);
   await expect(editor.locator('.stat-editor')).toHaveCount(4);
   await editor
-    .getByRole('combobox', { name: 'Entity', exact: true })
+    .getByRole('combobox', { includeHidden: true, name: 'Entity', exact: true })
     .selectOption('fan.mi_air_purifier_3c');
   await expect(editor.locator('.stat-editor')).toHaveCount(1);
   expect(await page.evaluate(() => window.detectedConfig.aqi)).toEqual({
@@ -197,7 +235,7 @@ test('a lookup finishing for a previous fan cannot populate the new fan with old
     editor.getByRole('button', { name: 'Detecting sensors…', exact: true }),
   ).toBeDisabled();
   await editor
-    .getByRole('combobox', { name: 'Entity', exact: true })
+    .getByRole('combobox', { includeHidden: true, name: 'Entity', exact: true })
     .selectOption('fan.mi_air_purifier_3c');
   await page.evaluate(() => window.resolveRegistry());
   await expect(editor.locator('.stat-editor')).toHaveCount(1);
@@ -214,9 +252,11 @@ test('late detection preserves a sensor draft while filling other sections', asy
 }) => {
   const editor = await mountEditor(page, { defer: true });
   const input = editor.getByRole('combobox', {
+    includeHidden: true,
     name: 'Reading sensor',
     exact: true,
   });
+  await expandEditor(editor);
   await input.pressSequentially('sensor.zhimi_airp_vb4_pm2', { delay: 10 });
   await page.evaluate(() => window.resolveRegistry());
   await expect(editor.locator('.stat-editor')).toHaveCount(4);
@@ -244,9 +284,11 @@ test('registry failure leaves a percentage fallback and usable manual fields', a
     unit: '%',
   });
   const input = editor.getByRole('combobox', {
+    includeHidden: true,
     name: 'Reading sensor',
     exact: true,
   });
+  await expandEditor(editor);
   await input.fill('sensor.zhimi_airp_vb4_pm2_5');
   await input.press('Tab');
   expect(await page.evaluate(() => window.detectedConfig.aqi.entity_id)).toBe(
@@ -260,23 +302,32 @@ test('detects filter remaining as an editable statistic without adding duplicate
   const editor = await mountEditor(page, { filter: true });
   await expect(editor.locator('.stat-editor')).toHaveCount(5);
   await expect(
-    editor.getByRole('textbox', { name: 'Label 5', exact: true }),
+    editor.getByRole('textbox', {
+      includeHidden: true,
+      name: 'Label 5',
+      exact: true,
+    }),
   ).toHaveValue('Filter remaining');
   await expect(
     page.locator('xiaomi-purifier-card').first().locator('.stats-value').last(),
   ).toHaveText('92');
+  await expandEditor(editor);
   await editor
-    .getByRole('textbox', { name: 'Label 5', exact: true })
+    .getByRole('textbox', { includeHidden: true, name: 'Label 5', exact: true })
     .fill('My filter');
   await editor
-    .getByRole('textbox', { name: 'Label 5', exact: true })
+    .getByRole('textbox', { includeHidden: true, name: 'Label 5', exact: true })
     .press('Tab');
   await editor
     .getByRole('button', { name: 'Detect missing sensors', exact: true })
     .click();
   await expect(editor.locator('.stat-editor')).toHaveCount(5);
   await expect(
-    editor.getByRole('textbox', { name: 'Label 5', exact: true }),
+    editor.getByRole('textbox', {
+      includeHidden: true,
+      name: 'Label 5',
+      exact: true,
+    }),
   ).toHaveValue('My filter');
   const card = page.locator('xiaomi-purifier-card').first();
   expect(

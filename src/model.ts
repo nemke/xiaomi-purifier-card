@@ -25,6 +25,11 @@ export function referencedEntities(config: PurifierCardConfig): string[] {
   for (const source of [config.aqi, ...config.stats]) {
     if (source.entity_id) ids.add(source.entity_id);
   }
+  for (const control of [
+    ...(config.speed_controls ?? []),
+    ...(config.device_controls ?? []),
+  ])
+    if (control.entity_id) ids.add(control.entity_id);
   for (const shortcut of config.shortcuts) {
     if (shortcut.state_entity) ids.add(shortcut.state_entity);
     for (const action of [...(shortcut.actions ?? []), shortcut]) {
@@ -92,7 +97,10 @@ export function prepareActions(
       const entity = states[id];
       if (!entity || ['unavailable', 'unknown'].includes(entity.state))
         throw new Error(`${id} is unavailable`);
-      if (action.service === 'fan.set_preset_mode') {
+      if (
+        action.service === 'fan.set_preset_mode' ||
+        (action.service === 'fan.turn_on' && data.preset_mode !== undefined)
+      ) {
         const modes = entity.attributes.preset_modes as string[] | undefined;
         const mode = modes?.find(
           (value) =>
@@ -102,6 +110,13 @@ export function prepareActions(
           throw new Error(`${id} does not support preset ${data.preset_mode}`);
         data.preset_mode = mode;
       }
+      if (
+        action.service === 'select.select_option' &&
+        !(entity.attributes.options as string[] | undefined)?.includes(
+          String(data.option),
+        )
+      )
+        throw new Error(`${id} does not support option ${String(data.option)}`);
       if (action.service === 'fan.set_percentage') {
         const value = Number(data.percentage);
         if (

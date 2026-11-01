@@ -15,7 +15,12 @@ export default function buildConfig(
     throw new Error(localize('error.missing_entity'));
   }
 
-  for (const key of ['stats', 'shortcuts'] as const) {
+  for (const key of [
+    'stats',
+    'shortcuts',
+    'speed_controls',
+    'device_controls',
+  ] as const) {
     if (config[key] !== undefined && !Array.isArray(config[key])) {
       throw new Error(`${key} must be a list`);
     }
@@ -27,6 +32,17 @@ export default function buildConfig(
       throw new Error(`${key} entries must be objects`);
     }
   }
+  if (
+    config.preset_modes !== undefined &&
+    (!Array.isArray(config.preset_modes) ||
+      config.preset_modes.some((mode) => typeof mode !== 'string'))
+  )
+    throw new Error('preset_modes must be a list of mode names');
+  if (
+    config.toolbar_style !== undefined &&
+    !['auto', 'buttons', 'dropdown'].includes(config.toolbar_style)
+  )
+    throw new Error('Invalid toolbar style');
 
   return {
     ...config, // pass all unlisted properties
@@ -38,6 +54,9 @@ export default function buildConfig(
     compact_view: config.compact_view ?? false,
     aqi: config.aqi ?? {},
     stats: config.stats ?? [],
+    toolbar_style: config.toolbar_style ?? 'auto',
+    speed_controls: config.speed_controls ?? [],
+    device_controls: config.device_controls ?? [],
     shortcuts: (config.shortcuts ?? []).map((shortcut) => ({
       ...shortcut,
       preset_mode: shortcut.preset_mode ?? shortcut.speed,

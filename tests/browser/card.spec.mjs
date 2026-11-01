@@ -1,5 +1,14 @@
 import { test, expect } from '@playwright/test';
 
+async function expandEditor(editor) {
+  await editor.evaluate((element) => {
+    for (const details of element.shadowRoot.querySelectorAll(
+      '.stat-editor, .stat-options, .main-reading',
+    ))
+      details.open = true;
+  });
+}
+
 test.beforeEach(async ({ page }) => {
   page.on('pageerror', (error) => {
     throw error;
@@ -455,6 +464,7 @@ test('statistic icons can be changed or replaced by text through the editor with
     document.body.append(editor);
   });
   const editor = page.locator('xiaomi-purifier-card-editor');
+  await expandEditor(editor);
   const icon = editor.getByRole('textbox', { name: 'Icon 1', exact: true });
   await expect(icon).toHaveAttribute('placeholder', 'mdi:thermometer');
   await icon.fill('mdi:home-thermometer');
@@ -673,6 +683,7 @@ test('display names can be edited and cleared without renaming the fan or losing
     document.body.append(editor);
   });
   const editor = page.locator('xiaomi-purifier-card-editor');
+  await expandEditor(editor);
   const name = editor.getByRole('textbox', {
     name: 'Display name',
     exact: true,
@@ -739,6 +750,7 @@ test('basic editor reflects supplied settings and preserves advanced YAML on cha
     document.body.append(editor);
   });
   const editor = page.locator('xiaomi-purifier-card-editor');
+  await expandEditor(editor);
   await editor.locator('summary').filter({ hasText: 'Appearance' }).click();
   await expect(
     editor.getByRole('checkbox', { name: 'Compact View' }),
@@ -771,6 +783,7 @@ test('visual editor can add a main reading and statistics to a bare fan card', a
     document.body.append(editor);
   });
   const editor = page.locator('xiaomi-purifier-card-editor');
+  await expandEditor(editor);
   const main = editor.getByRole('combobox', {
     name: 'Reading sensor',
     exact: true,
@@ -783,6 +796,7 @@ test('visual editor can add a main reading and statistics to a bare fan card', a
   await editor
     .getByRole('button', { name: 'Add statistic', exact: true })
     .click();
+  await expandEditor(editor);
   const source = editor.getByRole('combobox', {
     name: 'Statistic sensor 1',
     exact: true,
@@ -838,6 +852,7 @@ test('editing and reordering statistics retains templates, attributes, and short
     document.body.append(editor);
   });
   const editor = page.locator('xiaomi-purifier-card-editor');
+  await expandEditor(editor);
   await editor
     .getByRole('textbox', { name: 'Label 1', exact: true })
     .fill('Motor speed');
@@ -932,6 +947,7 @@ for (const field of [
       }, 20);
     }, !!field.emptyStat);
     const editor = page.locator('xiaomi-purifier-card-editor');
+    await expandEditor(editor);
     const input = editor.getByRole(field.role, {
       name: field.name,
       exact: true,

@@ -6,6 +6,10 @@ import {
   type CSSResultGroup,
 } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { live } from 'lit/directives/live.js';
+import { buildToolbar } from './toolbar';
+import { commandGoals, goalConfirmed, type CommandGoal } from './command';
+import { numberBounds } from './controls';
 import { fireEvent, type HomeAssistant } from 'custom-card-helpers';
 import registerTemplates from 'ha-template';
 import styles from './styles.css';
@@ -24,6 +28,8 @@ import type {
   PurifierCardConfig,
   PurifierCardShortcut,
   PurifierEntity,
+  PurifierSpeedControl,
+  PurifierDeviceControl,
 } from './types';
 
 registerTemplates();
@@ -39,6 +45,17 @@ export class PurifierCard extends LitElement {
   @state() private refreshing = false;
   @state() private narrow = false;
   @state() private tiny = false;
+  @state() private width = 0;
+  @state() private controlsExpanded = false;
+  @state() private drafts: Record<string, string> = {};
+  @state() private commandLabel = '';
+  @state() private request?: {
+    goals: CommandGoal[];
+    label: string;
+    id: string;
+    expired: boolean;
+  };
+  private confirmationTimer?: ReturnType<typeof setTimeout>;
   private sizeObserver?: ResizeObserver;
   private refreshTimer?: ReturnType<typeof setTimeout>;
   private refreshGeneration = 0;
@@ -46,6 +63,7 @@ export class PurifierCard extends LitElement {
   public connectedCallback() {
     super.connectedCallback();
     this.sizeObserver = new ResizeObserver(([entry]) => {
+      this.width = entry.contentRect.width;
       this.narrow = entry.contentRect.width <= 420;
       this.tiny = entry.contentRect.width <= 360;
     });
@@ -54,6 +72,7 @@ export class PurifierCard extends LitElement {
 
   public disconnectedCallback() {
     this.cancelRefresh();
+    this.cancelRequest();
     this.sizeObserver?.disconnect();
     super.disconnectedCallback();
   }
@@ -70,6 +89,11 @@ export class PurifierCard extends LitElement {
   }
   public setConfig(config: Partial<PurifierCardConfig>) {
     this.cancelRefresh();
+    this.cancelRequest();
+    if (config.entity !== this.config?.entity) {
+      this.controlsExpanded = false;
+      this.drafts = {};
+    }
     this.config = buildConfig(config);
   }
   private get entity(): PurifierEntity | undefined {
@@ -101,6 +125,33 @@ export class PurifierCard extends LitElement {
     );
   }
 
+  protected willUpdate() {
+    if (
+      this.request &&
+      this.request.goals.every((goal) => goalConfirmed(goal, this.hass.states))
+    ) {
+      const drafts = { ...this.drafts };
+      for (const goal of this.request.goals)
+        if (
+          goal.entity_id.startsWith('number.') &&
+          Number(drafts[goal.entity_id]) === Number(goal.value)
+        )
+          delete drafts[goal.entity_id];
+      this.drafts = drafts;
+      this.cancelRequest();
+    }
+  }
+  private cancelRequest() {
+    clearTimeout(this.confirmationTimer);
+    this.request = undefined;
+  }
+  private requestedValue(id: string) {
+    return this.request && !this.request.expired
+      ? this.request.goals.find(
+          (goal) => goal.entity_id === id && !goal.attribute,
+        )?.value
+      : undefined;
+  }
   private moreInfo(entityId = this.config.entity) {
     fireEvent(
       this,
@@ -110,10 +161,13 @@ export class PurifierCard extends LitElement {
     );
   }
 
-  private async execute(actions: PurifierAction[]) {
+  private async execute(actions: PurifierAction[], label = '', id = '') {
     if (this.pending || !this.available) return;
     this.cancelRefresh();
+    this.cancelRequest();
+    const focus = this.shadowRoot?.activeElement as HTMLElement | null;
     const generation = this.refreshGeneration;
+    this.commandLabel = label;
     this.pending = true;
     this.error = '';
     try {
@@ -122,6 +176,12 @@ export class PurifierCard extends LitElement {
         this.hass.states,
         this.config.entity,
       );
+      const goals = commandGoals(prepared);
+      if (
+        goals.length &&
+        !goals.every((goal) => goalConfirmed(goal, this.hass.states))
+      )
+        this.request = { goals, label, id, expired: false };
       for (const action of prepared) {
         const [domain, service] = action.service.split('.');
         let timer: ReturnType<typeof setTimeout> | undefined;
@@ -149,14 +209,38 @@ export class PurifierCard extends LitElement {
           clearTimeout(timer);
         }
       }
-      if (generation === this.refreshGeneration) this.refreshAfterAction();
+      if (generation === this.refreshGeneration) {
+        this.refreshAfterAction();
+        if (this.request)
+          this.confirmationTimer = setTimeout(() => {
+            if (
+              this.isConnected &&
+              generation === this.refreshGeneration &&
+              this.request
+            )
+              this.request = { ...this.request, expired: true };
+          }, 15000);
+      }
     } catch (error) {
+      this.cancelRequest();
       this.error =
         error && typeof error === 'object' && 'message' in error
           ? String(error.message)
           : String(error);
     } finally {
       this.pending = false;
+      this.commandLabel = '';
+      await this.updateComplete;
+      if (
+        this.isConnected &&
+        generation === this.refreshGeneration &&
+        focus?.isConnected &&
+        (document.activeElement === document.body ||
+          (document.activeElement === this &&
+            !this.shadowRoot?.activeElement)) &&
+        !focus.matches(':disabled')
+      )
+        focus.focus({ preventScroll: true });
     }
   }
 
@@ -207,8 +291,20 @@ export class PurifierCard extends LitElement {
     this.refreshTimer = setTimeout(() => void request(), 1000);
   }
 
-  private runShortcut(shortcut: PurifierCardShortcut) {
-    void this.execute(shortcutActions(shortcut, this.config.entity));
+  private runShortcut(shortcut: PurifierCardShortcut, index: number) {
+    const actions = shortcutActions(shortcut, this.config.entity);
+    // Shorthand preset actions explicitly start the purifier when it is off.
+    if (
+      !shortcut.actions &&
+      this.entity?.state === 'off' &&
+      actions[0]?.service === 'fan.set_preset_mode'
+    )
+      actions[0] = { ...actions[0], service: 'fan.turn_on' };
+    void this.execute(
+      actions,
+      shortcut.name ?? shortcut.preset_mode ?? shortcut.service ?? 'Shortcut',
+      `shortcut-${index}`,
+    );
   }
 
   private renderAQI() {
@@ -224,7 +320,7 @@ export class PurifierCard extends LitElement {
     return html`<div class="current-aqi">
       <span class="number-on">${value}</span
       ><span class="aqi-unit"
-        >${source.unit ?? this.hass.states[source.entity_id ?? '']?.attributes.unit_of_measurement ?? 'AQI'}</span
+        >${source.unit ?? this.hass.states[source.entity_id ?? '']?.attributes.unit_of_measurement ?? ''}</span
       >
     </div>`;
   }
@@ -243,34 +339,260 @@ export class PurifierCard extends LitElement {
   }
 
   private toolbarShortcuts(): PurifierCardShortcut[] {
-    const shortcuts = [...this.config.shortcuts];
-    for (const mode of this.entity?.attributes.preset_modes ?? []) {
-      const represented = shortcuts.some((shortcut) =>
-        shortcutActions(shortcut, this.config.entity).some(
-          (action) =>
-            action.service === 'fan.set_preset_mode' &&
-            String(action.service_data?.preset_mode).toLowerCase() ===
-              mode.toLowerCase() &&
-            (action.target?.entity_id ??
-              action.service_data?.entity_id ??
-              this.config.entity) === this.config.entity,
-        ),
-      );
-      if (!represented)
-        shortcuts.push({
-          name: localize(`preset_mode.${mode.toLowerCase()}`) ?? mode,
-          preset_mode: mode,
-          icon:
-            mode.toLowerCase() === 'auto'
-              ? 'mdi:brightness-auto'
-              : /silent|sleep/i.test(mode)
-                ? 'mdi:weather-night'
-                : /favorite/i.test(mode)
-                  ? 'mdi:star'
-                  : 'mdi:fan',
-        });
-    }
-    return shortcuts;
+    return buildToolbar(
+      this.config,
+      this.entity?.attributes.preset_modes ?? [],
+      (mode) => localize(`preset_mode.${mode.toLowerCase()}`) ?? mode,
+    );
+  }
+  private text(key: string) {
+    return localize(`controls.${key}`) ?? key;
+  }
+  private hasControls() {
+    return (
+      this.config.speed_controls.some((item) => !!item.entity_id) ||
+      this.config.device_controls.some((item) => !!item.entity_id)
+    );
+  }
+  private renderToolbar(disabled: boolean) {
+    if (!this.config.show_toolbar) return nothing;
+    const shortcuts = this.toolbarShortcuts();
+    const hasControls = this.hasControls();
+    const needed =
+      44 +
+      shortcuts.length * 48 +
+      (hasControls ? 44 : 0) +
+      (shortcuts.length + (hasControls ? 1 : 0)) * 4 +
+      8;
+    const overflow = this.width > 0 && needed > this.width - 24;
+    const dropdown =
+      this.config.toolbar_style === 'dropdown' ||
+      (this.config.toolbar_style === 'auto' && overflow);
+    return html`<div class="toolbar">
+        <button
+          type="button"
+          class="control-button power ${this.entity?.state === 'on' ? 'active' : ''} ${this.request?.id === 'power' && !this.request.expired ? 'requested' : ''}"
+          aria-label=${localize('common.toggle_power') ?? 'Toggle power'}
+          aria-pressed=${String(this.entity?.state === 'on')}
+          title=${localize(this.entity?.state === 'on' ? 'common.turn_off' : 'common.turn_on')}
+          ?disabled=${disabled}
+          @click=${() => void this.execute([{ service: this.entity?.state === 'on' ? 'fan.turn_off' : 'fan.turn_on' }], localize(this.entity?.state === 'on' ? 'common.turn_off' : 'common.turn_on') ?? 'Power', 'power')}
+        >
+          <ha-icon icon="mdi:power"></ha-icon>
+        </button>
+        ${
+          dropdown
+            ? html`<select
+                class="shortcut-menu"
+                aria-label=${this.text('run_shortcut')}
+                .value=${live('')}
+                ?disabled=${disabled}
+                @change=${(event: Event) => {
+                  const select = event.target as HTMLSelectElement;
+                  const index = Number(select.value);
+                  if (shortcuts[index])
+                    this.runShortcut(shortcuts[index], index);
+                  select.value = '';
+                }}
+              >
+                <option value="" disabled selected>
+                  ${this.text('choose_action')}
+                </option>
+                ${shortcuts.map((shortcut, index) => html`<option .value=${String(index)}>${shortcut.name ?? shortcut.preset_mode ?? shortcut.service ?? 'Shortcut'}${shortcutActive(shortcut, this.hass.states, this.config.entity) ? ' ✓' : ''}</option>`)}
+              </select>`
+            : html`<div class="shortcuts">
+                ${shortcuts.map((shortcut, index) => {
+                  const active = shortcutActive(
+                    shortcut,
+                    this.hass.states,
+                    this.config.entity,
+                  );
+                  const label =
+                    shortcut.name ??
+                    shortcut.preset_mode ??
+                    shortcut.service ??
+                    'Shortcut';
+                  const requested =
+                    this.request?.id === `shortcut-${index}` &&
+                    !this.request.expired;
+                  return html`<button
+                    type="button"
+                    class="control-button ${active ? 'active' : ''} ${requested ? 'requested' : ''}"
+                    aria-label=${label}
+                    aria-pressed=${String(active)}
+                    aria-busy=${String(requested)}
+                    title=${label}
+                    ?disabled=${disabled}
+                    @click=${() => this.runShortcut(shortcut, index)}
+                  >
+                    ${shortcut.icon ? html`<ha-icon .icon=${shortcut.icon}></ha-icon>` : nothing}<span
+                      class="control-label"
+                      >${label}</span
+                    >
+                  </button>`;
+                })}
+              </div>`
+        }
+        ${
+          hasControls
+            ? html`<button
+                type="button"
+                class="control-button controls-toggle"
+                aria-label=${this.text('device_controls')}
+                aria-expanded=${String(this.controlsExpanded)}
+                @click=${() => {
+                  this.controlsExpanded = !this.controlsExpanded;
+                }}
+              >
+                <ha-icon icon="mdi:cog-outline"></ha-icon>
+              </button>`
+            : nothing
+        }
+      </div>
+      ${!dropdown && overflow ? html`<p class="toolbar-hint">${this.text('swipe_actions')}</p>` : nothing}`;
+  }
+  private renderNumberControl(
+    control: PurifierSpeedControl | PurifierDeviceControl,
+    speed = false,
+  ) {
+    const entity = this.hass.states[control.entity_id];
+    const bounds = numberBounds(entity);
+    const mode =
+      speed && 'preset_mode' in control ? control.preset_mode : undefined;
+    const label =
+      control.name || entity?.attributes.friendly_name || control.entity_id;
+    const unit = entity?.attributes.unit_of_measurement ?? '';
+    const disabled =
+      !this.available ||
+      this.pending ||
+      !entity ||
+      ['unavailable', 'unknown'].includes(entity.state) ||
+      !bounds;
+    return html`<div class="number-control">
+      <label
+        ><span>${label}${unit ? ` (${unit})` : ''}</span
+        ><input
+          type="number"
+          aria-label=${label}
+          .value=${this.drafts[control.entity_id] ?? entity?.state ?? ''}
+          min=${bounds?.min ?? ''}
+          max=${bounds?.max ?? ''}
+          step=${bounds?.step ?? 'any'}
+          ?disabled=${disabled}
+          @input=${(event: Event) => {
+            this.drafts = {
+              ...this.drafts,
+              [control.entity_id]: (event.target as HTMLInputElement).value,
+            };
+          }}
+      /></label>
+      <button
+        type="button"
+        aria-label=${`${this.text('apply')} ${label}`}
+        ?disabled=${disabled}
+        @click=${(event: Event) => {
+          const input = (event.currentTarget as HTMLElement)
+            .closest('.number-control')
+            ?.querySelector('input');
+          if (!input?.value || !input.reportValidity()) return;
+          const actions: PurifierAction[] = [];
+          if (mode)
+            actions.push({
+              service:
+                this.entity?.state === 'off'
+                  ? 'fan.turn_on'
+                  : 'fan.set_preset_mode',
+              service_data: { preset_mode: mode },
+              target: { entity_id: this.config.entity },
+            });
+          actions.push({
+            service: 'number.set_value',
+            service_data: { value: Number(input.value) },
+            target: { entity_id: control.entity_id },
+          });
+          void this.execute(
+            actions,
+            label,
+            `${speed ? 'speed' : 'setting'}-${control.entity_id}`,
+          );
+        }}
+      >
+        ${this.text('apply')}${mode ? ` · ${mode}` : ''}</button
+      ><span class="control-reported"
+        >${this.text('reported_target')}: ${entity?.state ?? '—'}
+        ${unit}${!bounds ? ` · ${this.text('missing_bounds')}` : ''}</span
+      >
+    </div>`;
+  }
+  private renderDeviceControls() {
+    if (
+      !this.config.show_toolbar ||
+      !this.controlsExpanded ||
+      !this.hasControls()
+    )
+      return nothing;
+    return html`<section
+      class="device-controls"
+      aria-label=${this.text('device_controls')}
+    >
+      ${this.config.speed_controls.filter((item) => typeof item.entity_id === 'string' && item.entity_id.startsWith('number.')).map((item) => this.renderNumberControl(item, true))}
+      ${this.config.speed_controls.length ? html`<p class="control-help">${this.text('speed_help')}</p>` : nothing}
+      ${this.config.device_controls
+        .filter(
+          (item) =>
+            typeof item.entity_id === 'string' &&
+            /^(switch|select|number)\./.test(item.entity_id),
+        )
+        .map((item) => {
+          if (item.entity_id.startsWith('number.'))
+            return this.renderNumberControl(item);
+          const entity = this.hass.states[item.entity_id];
+          const label =
+            item.name || entity?.attributes.friendly_name || item.entity_id;
+          const disabled =
+            !this.available ||
+            this.pending ||
+            !entity ||
+            ['unavailable', 'unknown'].includes(entity.state);
+          const value = String(
+            this.requestedValue(item.entity_id) ?? entity?.state ?? '',
+          );
+          if (item.entity_id.startsWith('select.'))
+            return html`<label class="setting-row"
+              ><span>${label}</span
+              ><select
+                aria-label=${label}
+                .value=${live(value)}
+                ?disabled=${disabled}
+                @change=${(event: Event) => void this.execute([{ service: 'select.select_option', service_data: { option: (event.target as HTMLSelectElement).value }, target: { entity_id: item.entity_id } }], label, `setting-${item.entity_id}`)}
+              >
+                ${((entity?.attributes.options as string[]) ?? []).map((option) => html`<option .value=${option} .selected=${option === value}>${option}</option>`)}
+              </select></label
+            >`;
+          return html`<label class="setting-row"
+            ><span>${label}</span
+            ><input
+              type="checkbox"
+              role="switch"
+              aria-label=${label}
+              .checked=${live(value === 'on')}
+              ?disabled=${disabled}
+              @change=${(event: Event) => void this.execute([{ service: (event.target as HTMLInputElement).checked ? 'switch.turn_on' : 'switch.turn_off', target: { entity_id: item.entity_id } }], label, `setting-${item.entity_id}`)}
+          /></label>`;
+        })}
+    </section>`;
+  }
+  private renderCommandStatus() {
+    const label = this.pending ? this.commandLabel : this.request?.label;
+    if (!label) return nothing;
+    const status = this.pending
+      ? this.text('sending')
+      : this.request?.expired
+        ? this.text('unconfirmed')
+        : this.text('waiting');
+    return html`<div class="command-status" role="status">
+      ${status}: ${label}
+    </div>`;
   }
 
   private renderStats() {
@@ -361,63 +683,13 @@ export class PurifierCard extends LitElement {
           ></span>
           <span class="metadata">
             ${this.config.show_name ? html`<span class="friendly-name">${name}</span>` : nothing}
-            ${status ? html`<span class="state" role="status">${status}${this.pending ? ' …' : ''}</span>` : nothing}
+            ${status ? html`<span class="state" role="status">${status}</span>` : nothing}
           </span>
         </button>
         ${this.renderSpeed()}
       </div>
-      ${
-        this.config.show_toolbar
-          ? html`<div class="toolbar">
-              <button
-                type="button"
-                class="control-button power ${entity?.state === 'on' ? 'active' : ''}"
-                aria-label=${localize('common.toggle_power') ?? 'Toggle power'}
-                aria-pressed=${String(entity?.state === 'on')}
-                title=${localize(entity?.state === 'on' ? 'common.turn_off' : 'common.turn_on')}
-                ?disabled=${disabled}
-                @click=${() => {
-                  void this.execute([
-                    {
-                      service:
-                        entity?.state === 'on' ? 'fan.turn_off' : 'fan.turn_on',
-                    },
-                  ]);
-                }}
-              >
-                <ha-icon icon="mdi:power"></ha-icon>
-              </button>
-              <div class="shortcuts">
-                ${this.toolbarShortcuts().map((shortcut) => {
-                  const active = shortcutActive(
-                    shortcut,
-                    this.hass.states,
-                    this.config.entity,
-                  );
-                  const label =
-                    shortcut.name ??
-                    shortcut.preset_mode ??
-                    shortcut.service ??
-                    'Shortcut';
-                  return html`<button
-                    type="button"
-                    class="control-button ${active ? 'active' : ''}"
-                    aria-label=${label}
-                    aria-pressed=${String(active)}
-                    title=${label}
-                    ?disabled=${disabled}
-                    @click=${() => this.runShortcut(shortcut)}
-                  >
-                    ${shortcut.icon ? html`<ha-icon .icon=${shortcut.icon}></ha-icon>` : nothing}<span
-                      class="control-label"
-                      >${label}</span
-                    >
-                  </button>`;
-                })}
-              </div>
-            </div>`
-          : nothing
-      }
+      ${this.renderToolbar(disabled)} ${this.renderCommandStatus()}
+      ${this.renderDeviceControls()}
       ${this.error ? html`<div class="error" role="alert">${this.error}</div>` : nothing}
       ${this.renderStats()}
     </ha-card>`;

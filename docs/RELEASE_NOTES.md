@@ -1,12 +1,14 @@
-Inline statistics and editable display names.
+Compact configuration, responsive actions, and optional device controls.
 
-- Moves statistic icons and PM2.5/PM10 labels before their values, keeping each reading compact on desktop and phone layouts.
-- Keeps compact PM labels aligned with the first value line when longer readings or wider fonts wrap a unit.
-- Softens the statistics dividers and preserves 44px tap targets, tooltips, accessible labels, and entity detail links.
-- Adds Display name to the visual editor. Clearing it restores the entity name; overrides apply only to the card.
-- Preserves custom icons, labels, templates, and typing during HA state updates.
-- Keeps the existing RPM refresh behavior unchanged.
+- Collapses statistics into live summaries and puts related-device sources first. The five-stat editor is about 69% shorter on a phone; typed values and expanded rows survive HA updates and reordering.
+- Adds visual preset visibility/order and shortcut editing, including number targets, percentages, and advanced action sequences.
+- Uses a dropdown automatically when shortcut buttons would overflow. Power remains directly accessible.
+- Distinguishes sending from waiting for reported device confirmation, preserves keyboard focus, and shows an unconfirmed notice after 15 seconds. Preset highlighting and measured RPM follow actual HA state.
+- Starts an off purifier in the selected shorthand preset. Explicit advanced sequences retain their configured behavior.
+- Adds optional settings for real speed targets, child lock, buzzer, and display controls. Known same-device entities are suggested; manual overrides remain available. Number targets use their actual units, bounds, and step.
+- Prevents unitless fan-speed levels from being mislabeled as RPM. Broader non-Xiaomi compatibility still needs integration-specific validation.
+- Fixes initial dropdown selections. Keeps the existing best-effort RPM refresh cadence unchanged.
 
-Validation: lint, typecheck, 28 model tests, production build, and 45 Chromium browser tests, including inline alignment with wider fonts and long PM readings, display-name editing/clearing, and typing during HA refreshes.
+Validation: source/translation lint, strict TypeScript checking, 32 unit tests, production build, and 61 Chromium browser tests with simulated HA state. Physical-device validation remains separate.
 
-Update through HACS and reload the frontend. No configuration changes are required.
+Update through HACS and reload the frontend. Existing YAML continues to work. Open the card editor and use Detect missing sensors to append supported control suggestions to an existing card; review or remove any suggestion before saving.

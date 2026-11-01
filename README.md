@@ -2,6 +2,8 @@
 
 A Home Assistant dashboard card for Xiaomi air purifiers, built with TypeScript and Lit. Based on [Purifier Card by Denys Dovhan](https://github.com/denysdovhan/purifier-card), with preserved MIT attribution.
 
+See the [v0.1.12 UX review and previews](docs/ux-review-2026-11-01.md) for the compact editor, configurable modes, and optional device controls.
+
 ![Validation](https://github.com/nemke/xiaomi-purifier-card/actions/workflows/main.yml/badge.svg)
 
 ## Features
@@ -13,7 +15,9 @@ A Home Assistant dashboard card for Xiaomi air purifiers, built with TypeScript 
 - Shortcuts for native percentages, discrete levels, RPM, or custom action sequences.
 - Numeric range/step validation, ordered commands, and visible command errors.
 - Optional denser spacing, Jinja statistic templates, translations, and `--pc-*` theme variables.
-- Visual editor for the display name, main reading, statistics, and appearance; custom shortcuts and templates can be configured in YAML.
+- Compact visual editor with live statistic summaries, device-related source suggestions, preset visibility/order, and editable shortcuts.
+- Optional device settings and separate speed targets, with discovery for known same-device entities.
+- Command feedback distinguishes sending, waiting for device confirmation, and unconfirmed settings; reported RPM remains authoritative.
 
 ![Preview with simulated HA states](docs/preview.png)
 
@@ -79,22 +83,26 @@ The visual editor detects available readings when configuring a purifier. The ma
 
 For an existing card, click **Detect missing sensors** in the editor. Existing sensor choices, custom labels, units, templates, and shortcuts are preserved. Remove or change any suggestion to override it; state refreshes do not reapply removed defaults. Sensor discovery does not overwrite a field while you are typing.
 
-The visual editor includes an optional **Display name** field, plus **Main reading** and **Statistics** sections. Leave the display name empty to follow the entity’s name; an override applies only to this card ([display-name preview](docs/display-name-editor.png)). Choose a sensor for the header reading, then use **Add statistic** to add further readings. Each statistic has an editable label, unit, and icon, ordering buttons, and a remove button. **Use text label** restores the visible label. Sensor inputs offer suggestions from HA; you can also type an entity ID. See the [editor preview](docs/editor.png).
+The visual editor includes an optional **Display name** field, plus **Main reading** and **Statistics** sections. Leave the display name empty to follow the entity’s name; an override applies only to this card ([display-name preview](docs/display-name-editor.png)). Choose a sensor for the header reading, then use **Add statistic** to add further readings. Each statistic starts as a collapsed summary showing its label and live value. Expand it to change its source or label; unit and icon options are nested under display options. Ordering and removal controls remain inside the row. **Use text label** restores the visible label. Sensor inputs put entities from the selected device first and show their current values and units; you can also type an entity ID. See the [editor preview](docs/editor.png).
 
-Existing templates, fan attributes, and shortcuts are retained when editing labels, units, or appearance. Choosing a new sensor replaces that row's attribute source. Advanced templates and shortcut actions remain configurable in YAML.
+Existing templates, fan attributes, and shortcuts are retained when editing labels, units, or appearance. Choosing a new sensor replaces that row's attribute source. Templates remain configurable in YAML. The shortcut editor supports presets, number targets, percentages, and an advanced JSON action sequence while preserving custom state conditions.
 
-| Option             | Default              | Meaning                                    |
-| ------------------ | -------------------- | ------------------------------------------ |
-| `entity`           | required             | HA `fan.*` entity                          |
-| `name`             | entity friendly name | Optional display name                      |
-| `show_name`        | `true`               | Show the name                              |
-| `show_state`       | `true`               | Show state; unavailability is always shown |
-| `show_preset_mode` | `true`               | Show the fan's exposed preset list         |
-| `show_toolbar`     | `true`               | Show power and shortcuts                   |
-| `compact_view`     | `false`              | Use denser spacing                         |
-| `aqi`              | `{}`                 | Main reading source                        |
-| `stats`            | `[]`                 | List of additional readings                |
-| `shortcuts`        | `[]`                 | List of control buttons                    |
+| Option             | Default              | Meaning                                                    |
+| ------------------ | -------------------- | ---------------------------------------------------------- |
+| `entity`           | required             | HA `fan.*` entity                                          |
+| `name`             | entity friendly name | Optional display name                                      |
+| `show_name`        | `true`               | Show the name                                              |
+| `show_state`       | `true`               | Show state; unavailability is always shown                 |
+| `show_preset_mode` | `true`               | Show the current preset in the status text                 |
+| `show_toolbar`     | `true`               | Show power and shortcuts                                   |
+| `compact_view`     | `false`              | Use denser spacing                                         |
+| `aqi`              | `{}`                 | Main reading source                                        |
+| `stats`            | `[]`                 | List of additional readings                                |
+| `shortcuts`        | `[]`                 | List of custom actions                                     |
+| `preset_modes`     | automatic            | Visible built-in presets in display order; `[]` hides them |
+| `toolbar_style`    | `auto`               | `auto`, `buttons`, or `dropdown`                           |
+| `speed_controls`   | `[]`                 | Writable number targets, separate from measured speed      |
+| `device_controls`  | `[]`                 | Optional switch, select, or number settings                |
 
 ### Reading sources
 
@@ -123,6 +131,28 @@ stats:
     unit: hours
     subtitle: Filter use
 ```
+
+### Modes and device controls
+
+Use **Modes and shortcuts** to hide or reorder built-in presets and edit custom actions. Automatic layout uses buttons when they fit and a dropdown when space is limited. Choose **Buttons** to keep a horizontally scrollable strip, or **Dropdown** to always use the action menu. `show_preset_mode` controls only the status text; `preset_modes` controls which built-in actions appear. An explicit preset list does not remove custom multi-action shortcuts.
+
+When the fan is off, a shorthand preset action turns it on in that preset. Explicit `actions` sequences execute exactly as configured. During a command, the card shows **Sending**, then **Waiting for device** until HA reports the requested settings. After 15 seconds it shows an unconfirmed notice. Active highlighting follows reported state, and a later device update clears the notice. This feedback does not increase the integration's polling frequency.
+
+The editor suggests known Favorite/Fan number targets and child-lock, buzzer, and display settings from the same device. Detection requires an unambiguous match; numeric controls must expose valid `min`, `max`, and `step`. Existing choices and intentionally empty lists are preserved. Use the detection button to append missing suggestions, or configure entities manually under **Device controls**.
+
+A settings button appears on cards with configured controls. Speed targets show their actual unit, bounds, and reported target separately from the header's measured RPM. **Apply** selects the configured preset before setting its number. Some models expose a level rather than an RPM target; the card uses the entity's actual unit and step.
+
+```yaml
+speed_controls:
+  - entity_id: number.mi_air_purifier_3c_favorite_motor_speed
+    preset_mode: Favorite
+    name: Favorite speed
+device_controls:
+  - entity_id: switch.mi_air_purifier_3c_child_lock
+    name: Child lock
+```
+
+Omit `preset_mode` for a number target that does not require a mode change. Optional `name` overrides apply only to the card. These controls depend on what the HA integration exposes; no new backend or device capability is added.
 
 ### Shortcuts
 

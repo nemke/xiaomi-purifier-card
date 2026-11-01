@@ -30,7 +30,8 @@ ha-card {
   overflow: hidden;
 }
 button,
-input {
+input,
+select {
   font: inherit;
 }
 button {
@@ -44,7 +45,8 @@ input:disabled {
   opacity: 0.4;
 }
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   outline: 2px solid var(--pc-slider-bar-color);
   outline-offset: -2px;
 }
@@ -299,4 +301,105 @@ ha-icon {
 }
 .narrow .stats-block:last-child:nth-child(odd) {
   grid-column: 1 / -1;
+}
+
+.control-button.requested:not(.active) {
+  outline: 1px solid var(--pc-slider-bar-color);
+  outline-offset: -2px;
+}
+.shortcut-menu {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px;
+  color: var(--pc-toolbar-text-color);
+  background: var(--pc-toolbar-background);
+  border: 0;
+  border-radius: 10px;
+}
+.controls-toggle {
+  flex: 0 0 44px;
+  position: sticky;
+  right: 0;
+  background: var(--pc-toolbar-background);
+}
+.command-status,
+.toolbar-hint {
+  padding: 0 14px 10px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--pc-secondary-text-color);
+  overflow-wrap: anywhere;
+}
+.device-controls {
+  margin: 0 12px 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--pc-toolbar-background);
+}
+.number-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.number-control label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.number-control input,
+.device-controls select {
+  min-width: 0;
+  width: 100%;
+  min-height: 44px;
+  color: var(--pc-primary-text-color);
+  background: var(--pc-background);
+  border: 1px solid var(--pc-divider-color);
+  border-radius: 6px;
+  padding: 6px;
+}
+.number-control button {
+  align-self: end;
+  min-height: 44px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--pc-slider-bar-color);
+  color: var(--text-primary-color, #fff);
+}
+.control-reported {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--pc-secondary-text-color);
+  overflow-wrap: anywhere;
+}
+.control-help {
+  margin: 0 0 12px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--pc-secondary-text-color);
+}
+.setting-row {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 48px;
+  font-size: 13px;
+}
+.setting-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.setting-row select {
+  width: auto;
+  max-width: 55%;
+}
+.setting-row input {
+  accent-color: var(--pc-slider-bar-color);
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
 }

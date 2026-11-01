@@ -137,6 +137,15 @@ export function detectReadings(
             `${item.translation_key ?? ''} ${item.original_name ?? ''} ${item.entity_id}`,
           ),
       );
+    // A generic fan_speed sensor may be a level, not RPM. Units are authoritative.
+    if (kind === 'rpm')
+      for (let i = matching.length - 1; i >= 0; i--)
+        if (
+          String(
+            states[matching[i].entity_id].attributes.unit_of_measurement ?? '',
+          ).toLowerCase() !== 'rpm'
+        )
+          matching.splice(i, 1);
     const ranked = matching
       .map((item) => ({
         item,

@@ -57,6 +57,17 @@ export interface PurifierCardShortcut {
   state?: string | number;
 }
 
+export interface PurifierSpeedControl {
+  entity_id: string;
+  preset_mode?: string;
+  name?: string;
+}
+
+export interface PurifierDeviceControl {
+  entity_id: string;
+  name?: string;
+}
+
 export interface PurifierAction {
   service: string;
   service_data?: Record<string, unknown>;
@@ -75,6 +86,10 @@ export interface PurifierCardConfig {
   aqi: PurifierAQI;
   stats: PurifierCardStat[];
   shortcuts: PurifierCardShortcut[];
+  preset_modes?: string[];
+  toolbar_style: 'auto' | 'buttons' | 'dropdown';
+  speed_controls: PurifierSpeedControl[];
+  device_controls: PurifierDeviceControl[];
 }
 
 export interface SliderValue {
