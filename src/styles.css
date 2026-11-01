@@ -192,17 +192,21 @@ ha-icon {
 .stats {
   display: grid;
   grid-template-columns: repeat(var(--stat-columns, 4), minmax(0, 1fr));
-  border-top: 1px solid var(--pc-divider-color);
+  border-top: 1px solid
+    color-mix(in srgb, var(--pc-divider-color) 50%, transparent);
 }
 .stats-block {
   display: flex;
   min-width: 0;
+  min-height: 44px;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   padding: 10px 5px;
   background: transparent;
-  border-inline-end: 1px solid var(--pc-divider-color);
+  border-inline-end: 1px solid
+    color-mix(in srgb, var(--pc-divider-color) 50%, transparent);
   color: var(--pc-secondary-text-color);
   overflow-wrap: anywhere;
 }
@@ -211,12 +215,21 @@ ha-icon {
 }
 .stats-reading {
   display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  max-width: 100%;
+}
+.stats-measurement {
+  display: flex;
+  min-width: 0;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: center;
   gap: 3px;
 }
 .stats-value {
+  min-width: 0;
   font-size: 16px;
   font-variant-numeric: tabular-nums;
   color: var(--pc-primary-text-color);
@@ -230,6 +243,9 @@ ha-icon {
   --mdc-icon-size: 18px;
   width: 18px;
   height: 18px;
+  flex: 0 0 18px;
+  align-self: flex-start;
+  margin-block-start: 1px;
 }
 .sr-only {
   position: absolute;
@@ -266,7 +282,8 @@ ha-icon {
   font-size: 14px;
 }
 .narrow .stats-block {
-  border-bottom: 1px solid var(--pc-divider-color);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--pc-divider-color) 50%, transparent);
 }
 .narrow .stats-block:nth-child(even) {
   border-inline-end: 0;

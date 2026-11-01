@@ -336,6 +336,17 @@ export class PurifierCardEditor extends LitElement {
             )}
         </select></label
       >
+      <label class="field"
+        ><span>${this.text('display_name')}</span
+        ><input
+          type="text"
+          aria-label=${this.text('display_name')}
+          .value=${this.config.name ?? ''}
+          placeholder=${this.hass?.states[this.config.entity ?? '']?.attributes.friendly_name ?? this.config.entity ?? ''}
+          @input=${() => this.typingSections.add('name')}
+          @change=${(event: Event) => this.change('name', (event.target as HTMLInputElement).value.trim() || undefined)}
+      /></label>
+      <p class="hint">${this.text('display_name_help')}</p>
       <div class="detection">
         <button
           type="button"

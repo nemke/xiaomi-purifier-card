@@ -13,7 +13,7 @@ A Home Assistant dashboard card for Xiaomi air purifiers, built with TypeScript 
 - Shortcuts for native percentages, discrete levels, RPM, or custom action sequences.
 - Numeric range/step validation, ordered commands, and visible command errors.
 - Optional denser spacing, Jinja statistic templates, translations, and `--pc-*` theme variables.
-- Visual editor for the main reading, statistics, and appearance; custom shortcuts and templates can be configured in YAML.
+- Visual editor for the display name, main reading, statistics, and appearance; custom shortcuts and templates can be configured in YAML.
 
 ![Preview with simulated HA states](docs/preview.png)
 
@@ -79,7 +79,7 @@ The visual editor detects available readings when configuring a purifier. The ma
 
 For an existing card, click **Detect missing sensors** in the editor. Existing sensor choices, custom labels, units, templates, and shortcuts are preserved. Remove or change any suggestion to override it; state refreshes do not reapply removed defaults. Sensor discovery does not overwrite a field while you are typing.
 
-The visual editor includes **Main reading** and **Statistics** sections. Choose a sensor for the header reading, then use **Add statistic** to add further readings. Each statistic has an editable label, unit, and icon, ordering buttons, and a remove button. **Use text label** restores the visible label. Sensor inputs offer suggestions from HA; you can also type an entity ID. See the [editor preview](docs/editor.png).
+The visual editor includes an optional **Display name** field, plus **Main reading** and **Statistics** sections. Leave the display name empty to follow the entity’s name; an override applies only to this card ([display-name preview](docs/display-name-editor.png)). Choose a sensor for the header reading, then use **Add statistic** to add further readings. Each statistic has an editable label, unit, and icon, ordering buttons, and a remove button. **Use text label** restores the visible label. Sensor inputs offer suggestions from HA; you can also type an entity ID. See the [editor preview](docs/editor.png).
 
 Existing templates, fan attributes, and shortcuts are retained when editing labels, units, or appearance. Choosing a new sensor replaces that row's attribute source. Advanced templates and shortcut actions remain configurable in YAML.
 
@@ -102,7 +102,7 @@ Leaving the main reading source empty shows fan speed when the fan exposes a mea
 
 Both `aqi` and each statistic accept `entity_id`, `attribute`, and `unit`. Without `entity_id`, an attribute is read from the fan. Combining them reads an attribute of the specified entity. Nested attribute paths are supported. Units default to the source sensor's unit where available. Missing, unknown, and unavailable readings show `—`; real zero values remain zero.
 
-Statistics additionally accept `subtitle`, `icon`, and `value_template`. Temperature, humidity, filter remaining, and RPM use automatic icons; PM2.5 and PM10 retain their distinct short labels. Unknown readings keep their text. Labels remain available as tooltips and accessible names, and clicking a statistic still opens its entity details. Set `icon: mdi:thermometer` to override the icon or `icon: ''` to show text. Omit `icon` for automatic selection.
+Statistics additionally accept `subtitle`, `icon`, and `value_template`. Temperature, humidity, filter remaining, and RPM use automatic icons; PM2.5 and PM10 retain their distinct short labels before the values. Icons and text labels prefix each reading on the same row. Unknown readings keep their text. Labels remain available as tooltips and accessible names, and clicking a statistic still opens its entity details. Set `icon: mdi:thermometer` to override the icon or `icon: ''` to show text. Omit `icon` for automatic selection.
 
 ```yaml
 stats:

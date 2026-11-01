@@ -1,10 +1,11 @@
-Icons for statistics.
+Inline statistics and editable display names.
 
-- Replaces standard temperature, humidity, filter-remaining, and RPM labels with thermometer, droplet, filter, and fan icons. Existing cards pick up automatic icons without configuration changes; PM2.5 and PM10 keep their distinct short labels.
-- Adds a per-statistic icon field and Use text label switch in the visual editor. YAML supports custom `icon: mdi:...` or `icon: ''` for text.
-- Preserves numeric readings/units, labels as hover tooltips and accessible names, keyboard interaction, and entity detail links. Unknown statistics keep their text label.
-- Sensor discovery includes suitable icons for renamed sensors; manual choices survive re-detection.
+- Moves statistic icons and PM2.5/PM10 labels before their values, keeping each reading compact on desktop and phone layouts.
+- Softens the statistics dividers and preserves 44px tap targets, tooltips, accessible labels, and entity detail links.
+- Adds Display name to the visual editor. Clearing it restores the entity name; overrides apply only to the card.
+- Preserves custom icons, labels, templates, and typing during HA state updates.
+- Keeps the existing RPM refresh behavior unchanged.
 
-Validation: lint, typecheck, 28 model tests, build, and 43 Chromium browser tests, including accessible names, custom/text overrides, editor preservation, typing during HA refreshes, and responsive layouts.
+Validation: lint, typecheck, 28 model tests, production build, and 45 Chromium browser tests, including inline alignment, display-name editing/clearing, and typing during HA refreshes.
 
-Update through HACS and reload the frontend. All earlier sensor-refresh behavior is retained.
+Update through HACS and reload the frontend. No configuration changes are required.

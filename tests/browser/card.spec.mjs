@@ -288,8 +288,16 @@ test('statistics use recognizable icons while keeping PM labels, tooltips and ac
           subtitle: 'Filter remaining',
           unit: '%',
         },
-        { entity_id: 'sensor.zhimi_airp_vb4_pm2_5', subtitle: 'PM 2.5' },
-        { entity_id: 'sensor.zhimi_airp_vb4_pm10', subtitle: 'PM 10' },
+        {
+          entity_id: 'sensor.zhimi_airp_vb4_pm2_5',
+          subtitle: 'PM 2.5',
+          unit: 'μg/m³',
+        },
+        {
+          entity_id: 'sensor.zhimi_airp_vb4_pm10',
+          subtitle: 'PM 10',
+          unit: 'μg/m³',
+        },
       ],
     });
     window.moreInfo = [];
@@ -328,6 +336,35 @@ test('statistics use recognizable icons while keeping PM labels, tooltips and ac
   await expect(stats.nth(2)).toHaveAccessibleName('— % Filter remaining');
   await expect(stats.nth(3).locator('.stats-subtitle')).toHaveText('PM 2.5');
   await expect(stats.nth(4).locator('.stats-subtitle')).toHaveText('PM 10');
+  for (const width of [1280, 375]) {
+    await page.setViewportSize({ width, height: 800 });
+    if (width <= 420)
+      await expect(card.locator('ha-card')).toHaveClass(/narrow/);
+    else await expect(card.locator('ha-card')).not.toHaveClass(/narrow/);
+    for (const index of [0, 1, 2]) {
+      const item = stats.nth(index);
+      const iconBox = await item.locator('.stats-icon').boundingBox();
+      const valueBox = await item.locator('.stats-value').boundingBox();
+      expect(iconBox.x + iconBox.width).toBeLessThanOrEqual(valueBox.x);
+      expect(
+        Math.abs(
+          iconBox.y + iconBox.height / 2 - valueBox.y - valueBox.height / 2,
+        ),
+      ).toBeLessThan(2);
+      expect((await item.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    }
+    for (const index of [3, 4]) {
+      const item = stats.nth(index);
+      const labelBox = await item.locator('.stats-subtitle').boundingBox();
+      const valueBox = await item.locator('.stats-value').boundingBox();
+      expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(valueBox.x);
+      expect(
+        Math.abs(
+          labelBox.y + labelBox.height / 2 - valueBox.y - valueBox.height / 2,
+        ),
+      ).toBeLessThan(2);
+    }
+  }
   await stats.nth(0).focus();
   await page.keyboard.press('Enter');
   expect(await page.evaluate(() => window.moreInfo)).toEqual([
@@ -605,6 +642,70 @@ test('template statistics receive a real hass object and render their result', a
   ).toHaveText('formatted value');
 });
 
+test('display names can be edited and cleared without renaming the fan or losing advanced configuration', async ({
+  page,
+}) => {
+  await page.evaluate(async () => {
+    const editor = await customElements
+      .get('xiaomi-purifier-card')
+      .getConfigElement();
+    editor.hass = window.hass;
+    editor.setConfig({ ...window.configs[0], name: 'Existing card alias' });
+    editor.addEventListener('config-changed', (event) => {
+      window.edited = event.detail.config;
+      window.cards[0].setConfig(window.edited);
+      editor.setConfig(structuredClone(window.edited));
+    });
+    document.body.append(editor);
+  });
+  const editor = page.locator('xiaomi-purifier-card-editor');
+  const name = editor.getByRole('textbox', {
+    name: 'Display name',
+    exact: true,
+  });
+  const card = page.locator('xiaomi-purifier-card').first();
+  await expect(name).toHaveValue('Existing card alias');
+  await expect(name).toHaveAttribute(
+    'placeholder',
+    'Xiaomi Air Purifier 4 Pro',
+  );
+  await name.fill('  Living room purifier  ');
+  await name.press('Tab');
+  await expect(card.locator('.friendly-name')).toHaveText(
+    'Living room purifier',
+  );
+  expect(await page.evaluate(() => window.edited.name)).toBe(
+    'Living room purifier',
+  );
+  expect(
+    await page.evaluate(
+      () => window.hass.states['fan.zhimi_airp_vb4'].attributes.friendly_name,
+    ),
+  ).toBe('Xiaomi Air Purifier 4 Pro');
+  expect(await page.evaluate(() => window.edited.stats)).toEqual(
+    await page.evaluate(() => window.configs[0].stats),
+  );
+  expect(await page.evaluate(() => window.edited.shortcuts)).toEqual(
+    await page.evaluate(() => window.configs[0].shortcuts),
+  );
+  await name.fill('');
+  await name.press('Tab');
+  expect(await page.evaluate(() => window.edited.name)).toBeUndefined();
+  await expect(card.locator('.friendly-name')).toHaveText(
+    'Xiaomi Air Purifier 4 Pro',
+  );
+  await page.evaluate(() => {
+    window.updateEntity('fan.zhimi_airp_vb4', 'on', {
+      ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
+      friendly_name: 'Renamed device',
+    });
+    document.querySelector('xiaomi-purifier-card-editor').hass = window.hass;
+  });
+  await expect(card.locator('.friendly-name')).toHaveText('Renamed device');
+  await expect(name).toHaveAttribute('placeholder', 'Renamed device');
+  expect(await page.evaluate(() => window.calls)).toEqual([]);
+});
+
 test('basic editor reflects supplied settings and preserves advanced YAML on changes', async ({
   page,
 }) => {
@@ -742,6 +843,12 @@ test('editing and reordering statistics retains templates, attributes, and short
 });
 
 for (const field of [
+  {
+    name: 'Display name',
+    role: 'textbox',
+    value: 'Living room purifier',
+    read: (config) => config.name,
+  },
   {
     name: 'Icon 1',
     role: 'textbox',

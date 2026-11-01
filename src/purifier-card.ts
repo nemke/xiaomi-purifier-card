@@ -299,21 +299,22 @@ export class PurifierCard extends LitElement {
           @click=${() => this.moreInfo(stat.entity_id)}
         >
           <span class="stats-reading"
-            ><span class="stats-value"
-              >${valid && stat.value_template ? html`<ha-template .hass=${this.hass} .template=${stat.value_template} .value=${value} .variables=${{ value }}></ha-template>` : value}</span
-            ><span class="stats-unit"
-              >${stat.unit ?? this.hass.states[stat.entity_id ?? '']?.attributes.unit_of_measurement ?? ''}</span
-            ></span
-          >${
-            icon
-              ? html`<ha-icon
+            >${
+              icon
+                ? html`<ha-icon
                     class="stats-icon"
                     .icon=${icon}
                     aria-hidden="true"
-                  ></ha-icon
-                  ><span class="sr-only">${label}</span>`
-              : html`<span class="stats-subtitle">${label}</span>`
-          }
+                  ></ha-icon>`
+                : html`<span class="stats-subtitle">${label}</span>`
+            }<span class="stats-measurement"
+              ><span class="stats-value"
+                >${valid && stat.value_template ? html`<ha-template .hass=${this.hass} .template=${stat.value_template} .value=${value} .variables=${{ value }}></ha-template>` : value}</span
+              ><span class="stats-unit"
+                >${stat.unit ?? this.hass.states[stat.entity_id ?? '']?.attributes.unit_of_measurement ?? ''}</span
+              ></span
+            ></span
+          >${icon ? html`<span class="sr-only">${label}</span>` : nothing}
         </button>`;
       })}
     </div>`;

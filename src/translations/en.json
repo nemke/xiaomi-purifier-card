@@ -42,6 +42,8 @@
     "humidity": "Humidity",
     "filter_remaining": "Filter remaining",
     "choose_fan": "Choose a purifier",
+    "display_name": "Display name",
+    "display_name_help": "Leave empty to use the entity's name. This changes only this card.",
     "main_reading": "Main reading",
     "reading_entity": "Reading sensor",
     "reading_placeholder": "Automatic fan speed, or choose a sensor",
