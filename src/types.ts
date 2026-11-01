@@ -68,6 +68,21 @@ export interface PurifierDeviceControl {
   name?: string;
 }
 
+export interface PurifierFilterWarning {
+  enabled?: boolean;
+  entity_id?: string;
+  attribute?: string;
+  mode?: 'remaining_percent' | 'remaining_days' | 'replacement';
+  warning_threshold?: number;
+  critical_threshold?: number;
+}
+
+export interface PurifierShutdownTimer {
+  entity_id?: string;
+  automation_entity_id?: string;
+  deadline_entity_id?: string;
+}
+
 export interface PurifierAction {
   service: string;
   service_data?: Record<string, unknown>;
@@ -82,6 +97,7 @@ export interface PurifierCardConfig {
   show_state: boolean;
   show_preset_mode: boolean;
   show_toolbar: boolean;
+  show_pm_trends: boolean;
   compact_view: boolean;
   aqi: PurifierAQI;
   stats: PurifierCardStat[];
@@ -90,6 +106,8 @@ export interface PurifierCardConfig {
   toolbar_style: 'auto' | 'buttons' | 'dropdown';
   speed_controls: PurifierSpeedControl[];
   device_controls: PurifierDeviceControl[];
+  filter_warning?: PurifierFilterWarning;
+  shutdown_timer?: PurifierShutdownTimer;
 }
 
 export interface SliderValue {

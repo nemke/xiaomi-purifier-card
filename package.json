@@ -1,7 +1,7 @@
 {
-  "name": "xiaomi-purifier-card",
-  "version": "0.1.12",
-  "description": "Configurable Xiaomi air purifier dashboard card for Home Assistant",
+  "name": "breeze-purifier-card",
+  "version": "0.1.13",
+  "description": "Compact multi-brand air purifier dashboard card for Home Assistant",
   "main": "dist/xiaomi-purifier-card.js",
   "scripts": {
     "start": "rollup -c --watch",
@@ -15,7 +15,8 @@
     "prepare": "husky",
     "typecheck": "tsc --noEmit",
     "test:unit": "node --test tests/*.test.mjs",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "test:blueprint": "python3 tests/blueprint_test.py"
   },
   "keywords": [
     "home-assistant",

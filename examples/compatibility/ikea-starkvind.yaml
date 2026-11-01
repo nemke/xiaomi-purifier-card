@@ -1,0 +1,19 @@
+# Illustrative Zigbee2MQTT entity IDs. The readout is a level, not RPM.
+# Numeric fan modes are exposed by Z2M as HA percentages, not presets.
+type: custom:breeze-purifier-card
+entity: fan.starkvind
+aqi:
+  entity_id: sensor.starkvind_fan_speed
+  unit: level
+stats:
+  - entity_id: sensor.starkvind_pm25
+    subtitle: PM 2.5
+  - entity_id: sensor.starkvind_filter_age
+    subtitle: Filter age
+    icon: mdi:air-filter
+filter_warning:
+  entity_id: binary_sensor.starkvind_replace_filter
+  mode: replacement
+device_controls:
+  - entity_id: switch.starkvind_child_lock
+  - entity_id: switch.starkvind_led_enable

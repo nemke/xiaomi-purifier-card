@@ -61,6 +61,7 @@ export function detectControls(
     ['childlock'],
     ['buzzer'],
     ['ledbrightness', 'displaybrightness', 'display', 'ledenable', 'led'],
+    ['nightlightlevel'],
   ]) {
     const candidates = related.filter(
       (entry) =>

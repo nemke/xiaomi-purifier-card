@@ -1,0 +1,6 @@
+type: custom:breeze-purifier-card
+entity: fan.zhimi_airp_vb4
+shutdown_timer:
+  entity_id: timer.living_room_purifier_shutdown
+  automation_entity_id: automation.breeze_living_room_shutdown
+  deadline_entity_id: input_text.living_room_purifier_deadline

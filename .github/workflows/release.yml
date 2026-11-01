@@ -21,11 +21,16 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: npm version --no-git-tag-version --allow-same-version "${RELEASE_TAG#v}"
       - run: npx playwright install --with-deps chromium
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - run: python -m pip install -r tests/requirements.txt
+      - run: python tests/blueprint_test.py
       - run: npm test
       - name: Create release with the validated HACS asset
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" dist/xiaomi-purifier-card.js --draft --title "$RELEASE_TAG" --notes-file docs/RELEASE_NOTES.md
+          gh release create "$RELEASE_TAG" dist/xiaomi-purifier-card.js --draft --title "Breeze Purifier Card $RELEASE_TAG" --notes-file docs/RELEASE_NOTES.md
           gh release edit "$RELEASE_TAG" --draft=false

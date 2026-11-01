@@ -95,7 +95,12 @@ export function fanSpeedSource(
     if (typeof attributes?.[attribute] === 'number')
       return { attribute, unit: 'RPM' };
   }
-  if (typeof attributes?.percentage === 'number')
+  // Integrations such as VeSync/MQTT can expose an unknown percentage in Auto.
+  // Keep its unit and show an unavailable reading, rather than an empty pill.
+  if (
+    typeof attributes?.percentage === 'number' ||
+    attributes?.percentage === null
+  )
     return { attribute: 'percentage', unit: '%' };
   return undefined;
 }

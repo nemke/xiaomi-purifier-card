@@ -1,0 +1,15 @@
+# ESPHome entity names/capabilities depend on your firmware.
+# Verify that this particular filter sensor measures remaining life.
+type: custom:breeze-purifier-card
+entity: fan.levoit_vital100s_fan
+stats:
+  - entity_id: sensor.levoit_vital100s_pm_2_5
+    subtitle: PM 2.5
+  - entity_id: sensor.levoit_vital100s_filter
+    subtitle: Filter remaining
+    icon: mdi:air-filter
+  - entity_id: sensor.levoit_vital100s_current_cadr
+    subtitle: Airflow
+filter_warning:
+  entity_id: sensor.levoit_vital100s_filter
+  mode: remaining_percent

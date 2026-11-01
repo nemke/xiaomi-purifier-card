@@ -25,6 +25,10 @@ export function referencedEntities(config: PurifierCardConfig): string[] {
   for (const source of [config.aqi, ...config.stats]) {
     if (source.entity_id) ids.add(source.entity_id);
   }
+  if (config.filter_warning?.entity_id)
+    ids.add(config.filter_warning.entity_id);
+  for (const id of Object.values(config.shutdown_timer ?? {}))
+    if (typeof id === 'string' && id) ids.add(id);
   for (const control of [
     ...(config.speed_controls ?? []),
     ...(config.device_controls ?? []),
@@ -120,6 +124,10 @@ export function prepareActions(
       if (action.service === 'fan.set_percentage') {
         const value = Number(data.percentage);
         if (
+          !['number', 'string'].includes(typeof data.percentage) ||
+          data.percentage === '' ||
+          data.percentage == null ||
+          (typeof data.percentage === 'string' && !data.percentage.trim()) ||
           !(Number(entity.attributes.supported_features) & 1) ||
           !Number.isFinite(value) ||
           value < 0 ||
@@ -185,8 +193,10 @@ export function shortcutActive(
         return false;
     } else if (action.service === 'fan.set_percentage') {
       if (
+        entity.attributes.percentage == null ||
+        entity.attributes.percentage === '' ||
         Number(entity.attributes.percentage) !==
-        Number(action.service_data?.percentage)
+          Number(action.service_data?.percentage)
       )
         return false;
     } else if (action.service === 'number.set_value') {

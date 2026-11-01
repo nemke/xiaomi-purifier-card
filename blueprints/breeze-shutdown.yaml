@@ -1,0 +1,130 @@
+blueprint:
+  name: Breeze Purifier — shutdown timer
+  description: >-
+    Turns off a purifier when its timer finishes. Stores the deadline in an
+    input_text helper so expiry during HA downtime is handled after startup.
+    Create a timer with Restore enabled and a separate input_text helper.
+    Use one timer, deadline helper and automation per purifier.
+  domain: automation
+  input:
+    purifier:
+      name: Purifier
+      selector:
+        entity:
+          domain: fan
+    shutdown_timer:
+      name: Shutdown timer (Restore enabled)
+      selector:
+        entity:
+          domain: timer
+    deadline:
+      name: Persistent deadline helper
+      description: A dedicated Text helper, with at least 32 characters maximum length.
+      selector:
+        entity:
+          domain: input_text
+mode: queued
+max: 20
+variables:
+  purifier: !input purifier
+  shutdown_timer: !input shutdown_timer
+  deadline: !input deadline
+triggers:
+  - trigger: event
+    event_type: timer.started
+    event_data:
+      entity_id: !input shutdown_timer
+    id: started
+  - trigger: event
+    event_type: timer.restarted
+    event_data:
+      entity_id: !input shutdown_timer
+    id: started
+  - trigger: event
+    event_type: timer.paused
+    event_data:
+      entity_id: !input shutdown_timer
+    id: paused
+  - trigger: event
+    event_type: timer.cancelled
+    event_data:
+      entity_id: !input shutdown_timer
+    id: cancelled
+  - trigger: event
+    event_type: timer.finished
+    event_data:
+      entity_id: !input shutdown_timer
+    id: finished
+  - trigger: state
+    entity_id: !input purifier
+    to: 'off'
+    id: off
+  - trigger: state
+    entity_id: !input purifier
+    to: 'on'
+    id: reconcile
+  - trigger: homeassistant
+    event: start
+    id: reconcile
+  - trigger: time_pattern
+    minutes: '/1'
+    id: reconcile
+conditions: []
+actions:
+  - choose:
+      - conditions: "{{ trigger.id == 'started' }}"
+        sequence:
+          - if: "{{ not is_state(purifier, 'off') and is_state(shutdown_timer, 'active') }}"
+            then:
+              - action: input_text.set_value
+                target:
+                  entity_id: !input deadline
+                data:
+                  value: "{{ as_timestamp(state_attr(shutdown_timer, 'finishes_at'), 0) | int }}"
+            else:
+              - if: "{{ is_state(purifier, 'off') }}"
+                then:
+                  - action: input_text.set_value
+                    target:
+                      entity_id: !input deadline
+                    data:
+                      value: ''
+                  - action: timer.cancel
+                    target:
+                      entity_id: !input shutdown_timer
+      - conditions: "{{ (trigger.id == 'paused' and is_state(shutdown_timer, 'paused')) or (trigger.id == 'cancelled' and is_state(shutdown_timer, 'idle')) or (trigger.id == 'off' and is_state(purifier, 'off')) }}"
+        sequence:
+          - action: input_text.set_value
+            target:
+              entity_id: !input deadline
+            data:
+              value: ''
+          - if: "{{ is_state(purifier, 'off') and states(shutdown_timer) in ['active', 'paused'] }}"
+            then:
+              - action: timer.cancel
+                target:
+                  entity_id: !input shutdown_timer
+      - conditions: "{{ trigger.id in ['finished', 'reconcile'] and not is_state(shutdown_timer, 'paused') and states(deadline) | float(0) > 0 and ((trigger.id == 'finished' and is_state(shutdown_timer, 'idle')) or states(deadline) | float(0) <= as_timestamp(now())) }}"
+        sequence:
+          - if: "{{ is_state(purifier, 'on') }}"
+            then:
+              - action: fan.turn_off
+                target:
+                  entity_id: !input purifier
+          - if: "{{ is_state(purifier, 'off') }}"
+            then:
+              - action: input_text.set_value
+                target:
+                  entity_id: !input deadline
+                data:
+                  value: ''
+              - if: "{{ states(shutdown_timer) in ['active', 'paused'] }}"
+                then:
+                  - action: timer.cancel
+                    target:
+                      entity_id: !input shutdown_timer
+      - conditions: "{{ trigger.id == 'reconcile' and states(deadline) == '' and is_state(shutdown_timer, 'active') }}"
+        sequence:
+          - action: timer.cancel
+            target:
+              entity_id: !input shutdown_timer

@@ -2,6 +2,7 @@ import {
   LitElement,
   html,
   nothing,
+  svg,
   type PropertyValues,
   type CSSResultGroup,
 } from 'lit';
@@ -10,6 +11,15 @@ import { live } from 'lit/directives/live.js';
 import { buildToolbar } from './toolbar';
 import { commandGoals, goalConfirmed, type CommandGoal } from './command';
 import { numberBounds } from './controls';
+import { filterStatus } from './filter';
+import './shutdown-timer';
+import {
+  trendSource,
+  historyPoints,
+  trendPaths,
+  watchHistory,
+  type HistoryRows,
+} from './pm-history';
 import { fireEvent, type HomeAssistant } from 'custom-card-helpers';
 import registerTemplates from 'ha-template';
 import styles from './styles.css';
@@ -34,9 +44,9 @@ import type {
 
 registerTemplates();
 const PKG_VERSION = 'PKG_VERSION_VALUE';
-console.info(`XIAOMI-PURIFIER-CARD ${PKG_VERSION}`);
+console.info(`BREEZE-PURIFIER-CARD ${PKG_VERSION}`);
 
-@customElement('xiaomi-purifier-card')
+@customElement('breeze-purifier-card')
 export class PurifierCard extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
   @state() private config!: PurifierCardConfig;
@@ -55,6 +65,16 @@ export class PurifierCard extends LitElement {
     id: string;
     expired: boolean;
   };
+  @state() private historyRows: HistoryRows = {};
+  @state() private historyNow = Date.now();
+  private historyInView = false;
+  private historyObserver?: IntersectionObserver;
+  private historyTick?: ReturnType<typeof setInterval>;
+  private stopHistory?: () => void;
+  private historyKey = '';
+  private historyConnection?: HomeAssistant['connection'];
+  private historyGeneration = 0;
+  private historyVisibility = () => this.syncHistory();
   private confirmationTimer?: ReturnType<typeof setTimeout>;
   private sizeObserver?: ResizeObserver;
   private refreshTimer?: ReturnType<typeof setTimeout>;
@@ -68,12 +88,22 @@ export class PurifierCard extends LitElement {
       this.tiny = entry.contentRect.width <= 360;
     });
     this.sizeObserver.observe(this);
+    this.historyInView = false;
+    this.historyObserver = new IntersectionObserver(([entry]) => {
+      this.historyInView = entry.isIntersecting;
+      this.syncHistory();
+    });
+    this.historyObserver.observe(this);
+    document.addEventListener('visibilitychange', this.historyVisibility);
   }
 
   public disconnectedCallback() {
     this.cancelRefresh();
     this.cancelRequest();
     this.sizeObserver?.disconnect();
+    this.historyObserver?.disconnect();
+    document.removeEventListener('visibilitychange', this.historyVisibility);
+    this.clearHistory();
     super.disconnectedCallback();
   }
 
@@ -82,7 +112,7 @@ export class PurifierCard extends LitElement {
   }
   public static async getConfigElement() {
     await import('./editor');
-    return document.createElement('xiaomi-purifier-card-editor');
+    return document.createElement('breeze-purifier-card-editor');
   }
   public static getStubConfig(_: unknown, entities: string[]) {
     return { entity: entities.find((id) => id.startsWith('fan.')) ?? '' };
@@ -118,6 +148,9 @@ export class PurifierCard extends LitElement {
     return (
       !previous ||
       previous.language !== this.hass.language ||
+      previous.config !== this.hass.config ||
+      previous.connection !== this.hass.connection ||
+      previous.connected !== this.hass.connected ||
       previous.themes !== this.hass.themes ||
       referencedEntities(this.config).some(
         (id) => previous.states[id] !== this.hass.states[id],
@@ -140,6 +173,73 @@ export class PurifierCard extends LitElement {
       this.drafts = drafts;
       this.cancelRequest();
     }
+  }
+  protected updated() {
+    this.syncHistory();
+  }
+  private clearHistory() {
+    this.historyGeneration++;
+    this.stopHistory?.();
+    this.stopHistory = undefined;
+    clearInterval(this.historyTick);
+    this.historyTick = undefined;
+    this.historyKey = '';
+    this.historyConnection = undefined;
+    this.historyRows = {};
+  }
+  private syncHistory() {
+    if (!this.config || !this.hass) return;
+    const sources = this.config.show_pm_trends
+      ? this.config.stats
+          .map((stat) =>
+            trendSource(this.hass.states, stat, this.config.entity),
+          )
+          .filter((source): source is NonNullable<typeof source> => !!source)
+      : [];
+    const enabled =
+      this.isConnected &&
+      this.historyInView &&
+      this.hass.connected !== false &&
+      !document.hidden &&
+      this.hass.config?.components?.includes('history') &&
+      typeof this.hass.connection?.subscribeMessage === 'function';
+    const key =
+      enabled && sources.length
+        ? JSON.stringify([
+            [...new Set(sources.map((source) => source.entity_id))].sort(),
+            sources.some((source) => !!source.attribute),
+          ])
+        : '';
+    if (
+      key === this.historyKey &&
+      (!key || this.hass.connection === this.historyConnection)
+    )
+      return;
+    this.clearHistory();
+    if (!key) return;
+    this.historyKey = key;
+    this.historyConnection = this.hass.connection;
+    const generation = this.historyGeneration;
+    this.historyNow = Date.now();
+    this.stopHistory = watchHistory(this.hass.connection, sources, (rows) => {
+      if (this.isConnected && generation === this.historyGeneration) {
+        this.historyRows = rows;
+        this.historyNow = Date.now();
+      }
+    });
+    this.historyTick = setInterval(() => {
+      this.historyNow = Date.now();
+    }, 60000);
+  }
+  private statTrend(stat: PurifierCardConfig['stats'][number]) {
+    if (!this.config.show_pm_trends) return [];
+    const source = trendSource(this.hass.states, stat, this.config.entity);
+    return source
+      ? trendPaths(
+          historyPoints(this.historyRows[source.entity_id] ?? [], source),
+          this.historyNow,
+        )
+      : [];
   }
   private cancelRequest() {
     clearTimeout(this.confirmationTimer);
@@ -326,6 +426,12 @@ export class PurifierCard extends LitElement {
   }
 
   private renderSpeed() {
+    if (
+      !this.config.aqi.entity_id &&
+      !this.config.aqi.attribute &&
+      !fanSpeedSource(this.hass.states, this.config.entity)
+    )
+      return nothing;
     return html`<div class="speed-pill">
       ${this.renderAQI()}
       ${
@@ -349,6 +455,9 @@ export class PurifierCard extends LitElement {
     return localize(`controls.${key}`) ?? key;
   }
   private hasControls() {
+    return !!this.config.shutdown_timer?.entity_id || this.hasDeviceControls();
+  }
+  private hasDeviceControls() {
     return (
       this.config.speed_controls.some((item) => !!item.entity_id) ||
       this.config.device_controls.some((item) => !!item.entity_id)
@@ -528,7 +637,7 @@ export class PurifierCard extends LitElement {
     if (
       !this.config.show_toolbar ||
       !this.controlsExpanded ||
-      !this.hasControls()
+      !this.hasDeviceControls()
     )
       return nothing;
     return html`<section
@@ -595,6 +704,37 @@ export class PurifierCard extends LitElement {
     </div>`;
   }
 
+  private renderFilterWarning() {
+    const status = filterStatus(this.hass.states, this.config);
+    if (!status || status.level === 'healthy') return nothing;
+    const label = localize(`filter.${status.level}`) ?? status.level;
+    const remaining =
+      status.value === undefined
+        ? ''
+        : `${status.value}${status.source.mode === 'remaining_percent' ? '%' : ' ' + (localize('filter.days') ?? 'days')} ${localize('filter.remaining') ?? 'remaining'}`;
+    return html`<div
+      class="filter-notice"
+      data-level=${status.level}
+      role="status"
+    >
+      <button
+        type="button"
+        @click=${() => this.moreInfo(status.source.entity_id)}
+      >
+        <ha-icon
+          icon=${status.level === 'critical' ? 'mdi:air-filter' : status.level === 'unavailable' ? 'mdi:help-circle-outline' : 'mdi:alert-outline'}
+          aria-hidden="true"
+        ></ha-icon>
+        <span>${label}${remaining ? ` · ${remaining}` : ''}</span>
+        <ha-icon
+          class="filter-details-icon"
+          icon="mdi:chevron-right"
+          aria-hidden="true"
+        ></ha-icon>
+      </button>
+    </div>`;
+  }
+
   private renderStats() {
     const stats = this.config.stats.filter(
       (stat) => stat.entity_id || stat.attribute,
@@ -614,13 +754,15 @@ export class PurifierCard extends LitElement {
           stat.attribute ||
           this.hass.states[stat.entity_id ?? '']?.attributes.friendly_name ||
           stat.entity_id;
+        const paths = this.statTrend(stat);
         const inlineLabel = label?.replace(/^PM\s*(2\.5|10)$/i, 'PM$1');
         return html`<button
           type="button"
           class="stats-block"
-          title=${label ?? ''}
+          title=${`${label ?? ''}${paths.length ? ' · ' + (localize('common.last_hour') ?? 'Last hour') : ''}`}
           @click=${() => this.moreInfo(stat.entity_id)}
         >
+          ${paths.length ? svg`<svg class="stat-trend" viewBox="0 0 120 36" preserveAspectRatio="none" aria-hidden="true" focusable="false">${paths.map((path) => svg`<path class="trend-area" d=${path.area}></path><path class="trend-line" d=${path.line} vector-effect="non-scaling-stroke"></path>`)}</svg>` : nothing}
           <span class="stats-reading"
             >${
               icon
@@ -689,10 +831,20 @@ export class PurifierCard extends LitElement {
         ${this.renderSpeed()}
       </div>
       ${this.renderToolbar(disabled)} ${this.renderCommandStatus()}
+      ${this.config.shutdown_timer?.entity_id ? html`<breeze-shutdown-timer .hass=${this.hass} .config=${this.config.shutdown_timer} .fan=${this.config.entity} .expanded=${this.controlsExpanded} .showControls=${this.config.show_toolbar}></breeze-shutdown-timer>` : nothing}
       ${this.renderDeviceControls()}
       ${this.error ? html`<div class="error" role="alert">${this.error}</div>` : nothing}
-      ${this.renderStats()}
+      ${this.renderFilterWarning()} ${this.renderStats()}
     </ha-card>`;
+  }
+}
+
+// Keep existing dashboards working without registering one constructor twice.
+@customElement('xiaomi-purifier-card')
+export class LegacyPurifierCard extends PurifierCard {
+  public static override async getConfigElement() {
+    await import('./editor');
+    return document.createElement('xiaomi-purifier-card-editor');
   }
 }
 
@@ -704,8 +856,8 @@ declare global {
 window.customCards = window.customCards || [];
 window.customCards.push({
   preview: true,
-  type: 'xiaomi-purifier-card',
-  name: 'Xiaomi Purifier Card',
+  type: 'breeze-purifier-card',
+  name: 'Breeze Purifier Card',
   description:
     'Air purifier controls with configurable sensors, modes, and speed shortcuts.',
 });

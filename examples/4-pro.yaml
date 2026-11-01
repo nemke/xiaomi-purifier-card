@@ -1,4 +1,4 @@
-type: custom:xiaomi-purifier-card
+type: custom:breeze-purifier-card
 entity: fan.zhimi_airp_vb4
 compact_view: false
 show_state: true

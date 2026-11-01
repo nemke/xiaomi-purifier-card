@@ -1,0 +1,251 @@
+{
+  "vesync": {
+    "name": "Levoit through VeSync",
+    "fan": "fan.levoit_purifier",
+    "sources": [
+      "https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/vesync/fan.py",
+      "https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/vesync/sensor.py",
+      "https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/vesync/select.py"
+    ],
+    "note": "Synthetic representation of a three-speed purifier with Auto/Sleep and optional display, child lock and night light. Feature availability depends on model.",
+    "states": {
+      "fan.levoit_purifier": {
+        "state": "on",
+        "attributes": {
+          "friendly_name": "Levoit purifier",
+          "supported_features": 57,
+          "percentage": null,
+          "percentage_step": 33.333333333333336,
+          "preset_modes": ["auto", "sleep"],
+          "preset_mode": "auto"
+        }
+      },
+      "sensor.levoit_particles": {
+        "state": "8",
+        "attributes": { "device_class": "pm25", "unit_of_measurement": "µg/m³" }
+      },
+      "sensor.levoit_renamed_filter": {
+        "state": "18",
+        "attributes": {
+          "unit_of_measurement": "%",
+          "friendly_name": "Filter life"
+        }
+      },
+      "switch.levoit_child_lock": {
+        "state": "off",
+        "attributes": { "friendly_name": "Child lock" }
+      },
+      "switch.levoit_display": {
+        "state": "on",
+        "attributes": { "friendly_name": "Display" }
+      },
+      "select.levoit_night_light_level": {
+        "state": "dim",
+        "attributes": {
+          "friendly_name": "Night light",
+          "options": ["off", "dim", "on"]
+        }
+      },
+      "sensor.other_room_filter_life": {
+        "state": "0",
+        "attributes": { "unit_of_measurement": "%" }
+      }
+    },
+    "registry": [
+      { "entity_id": "fan.levoit_purifier", "device_id": "vesync" },
+      {
+        "entity_id": "sensor.levoit_particles",
+        "device_id": "vesync",
+        "original_device_class": "pm25"
+      },
+      {
+        "entity_id": "sensor.levoit_renamed_filter",
+        "device_id": "vesync",
+        "translation_key": "filter_life"
+      },
+      {
+        "entity_id": "switch.levoit_child_lock",
+        "device_id": "vesync",
+        "translation_key": "child_lock"
+      },
+      {
+        "entity_id": "switch.levoit_display",
+        "device_id": "vesync",
+        "translation_key": "display"
+      },
+      {
+        "entity_id": "select.levoit_night_light_level",
+        "device_id": "vesync",
+        "translation_key": "night_light_level"
+      },
+      { "entity_id": "sensor.other_room_filter_life", "device_id": "other" }
+    ]
+  },
+  "esphome": {
+    "name": "Levoit through ESPHome",
+    "fan": "fan.levoit_vital100s_fan",
+    "sources": [
+      "https://github.com/denysdovhan/purifier-card/issues/716",
+      "https://esphome.io/components/fan/"
+    ],
+    "note": "Sensor IDs and CADR unit follow the issue report. Fan presets, speed count and optional entities are synthetic; actual ESPHome firmware is user-defined.",
+    "states": {
+      "fan.levoit_vital100s_fan": {
+        "state": "on",
+        "attributes": {
+          "friendly_name": "ESPHome purifier",
+          "supported_features": 57,
+          "percentage": 50,
+          "percentage_step": 25,
+          "preset_modes": ["auto", "sleep"],
+          "preset_mode": "auto"
+        }
+      },
+      "sensor.levoit_vital100s_pm_2_5": {
+        "state": "4",
+        "attributes": { "device_class": "pm25", "unit_of_measurement": "µg/m³" }
+      },
+      "sensor.levoit_vital100s_filter": {
+        "state": "72",
+        "attributes": { "unit_of_measurement": "%", "friendly_name": "Filter" }
+      },
+      "sensor.levoit_vital100s_current_cadr": {
+        "state": "55",
+        "attributes": {
+          "unit_of_measurement": "m³/h",
+          "friendly_name": "Airflow"
+        }
+      },
+      "number.levoit_vital100s_target_rpm": {
+        "state": "1250",
+        "attributes": {
+          "min": 300,
+          "max": 2200,
+          "step": 10,
+          "unit_of_measurement": "rpm"
+        }
+      },
+      "switch.levoit_vital100s_display": {
+        "state": "on",
+        "attributes": { "friendly_name": "Display" }
+      }
+    },
+    "registry": [
+      { "entity_id": "fan.levoit_vital100s_fan", "device_id": "esphome" },
+      { "entity_id": "sensor.levoit_vital100s_pm_2_5", "device_id": "esphome" },
+      { "entity_id": "sensor.levoit_vital100s_filter", "device_id": "esphome" },
+      {
+        "entity_id": "sensor.levoit_vital100s_current_cadr",
+        "device_id": "esphome"
+      },
+      {
+        "entity_id": "number.levoit_vital100s_target_rpm",
+        "device_id": "esphome"
+      },
+      { "entity_id": "switch.levoit_vital100s_display", "device_id": "esphome" }
+    ],
+    "manual_config": {
+      "stats": [
+        { "entity_id": "sensor.levoit_vital100s_pm_2_5", "subtitle": "PM 2.5" },
+        {
+          "entity_id": "sensor.levoit_vital100s_filter",
+          "subtitle": "Filter remaining",
+          "icon": "mdi:air-filter"
+        },
+        {
+          "entity_id": "sensor.levoit_vital100s_current_cadr",
+          "subtitle": "Airflow"
+        }
+      ],
+      "filter_warning": {
+        "entity_id": "sensor.levoit_vital100s_filter",
+        "mode": "remaining_percent"
+      }
+    }
+  },
+  "starkvind": {
+    "name": "IKEA STARKVIND through Zigbee2MQTT",
+    "fan": "fan.starkvind",
+    "sources": [
+      "https://www.zigbee2mqtt.io/devices/E2006.html",
+      "https://github.com/Koenkk/zigbee2mqtt/blob/master/lib/extension/homeassistant.ts"
+    ],
+    "note": "Synthetic HA representation of Z2M's documented modes: numeric modes are percentage speeds; auto is a preset. fan_speed is a unitless read-only level, not RPM. Entity IDs are examples.",
+    "states": {
+      "fan.starkvind": {
+        "state": "on",
+        "attributes": {
+          "friendly_name": "STARKVIND",
+          "supported_features": 57,
+          "percentage": null,
+          "percentage_step": 11.11111111111111,
+          "preset_modes": ["auto"],
+          "preset_mode": "auto"
+        }
+      },
+      "sensor.starkvind_fan_speed": {
+        "state": "9",
+        "attributes": { "friendly_name": "Fan speed" }
+      },
+      "sensor.starkvind_pm25": {
+        "state": "5",
+        "attributes": { "device_class": "pm25", "unit_of_measurement": "µg/m³" }
+      },
+      "sensor.starkvind_filter_age": {
+        "state": "270000",
+        "attributes": {
+          "device_class": "duration",
+          "unit_of_measurement": "min",
+          "friendly_name": "Filter age"
+        }
+      },
+      "binary_sensor.starkvind_replace_filter": {
+        "state": "on",
+        "attributes": {
+          "device_class": "problem",
+          "friendly_name": "Replace filter"
+        }
+      },
+      "switch.starkvind_child_lock": {
+        "state": "off",
+        "attributes": { "friendly_name": "Child lock" }
+      },
+      "switch.starkvind_led_enable": {
+        "state": "on",
+        "attributes": { "friendly_name": "LED" }
+      }
+    },
+    "registry": [
+      { "entity_id": "fan.starkvind", "device_id": "starkvind" },
+      {
+        "entity_id": "sensor.starkvind_fan_speed",
+        "device_id": "starkvind",
+        "original_name": "Fan speed"
+      },
+      { "entity_id": "sensor.starkvind_pm25", "device_id": "starkvind" },
+      { "entity_id": "sensor.starkvind_filter_age", "device_id": "starkvind" },
+      {
+        "entity_id": "binary_sensor.starkvind_replace_filter",
+        "device_id": "starkvind",
+        "original_name": "Replace filter"
+      },
+      { "entity_id": "switch.starkvind_child_lock", "device_id": "starkvind" },
+      { "entity_id": "switch.starkvind_led_enable", "device_id": "starkvind" }
+    ],
+    "manual_config": {
+      "aqi": { "entity_id": "sensor.starkvind_fan_speed", "unit": "level" },
+      "stats": [
+        { "entity_id": "sensor.starkvind_pm25", "subtitle": "PM 2.5" },
+        {
+          "entity_id": "sensor.starkvind_filter_age",
+          "subtitle": "Filter age",
+          "icon": "mdi:air-filter"
+        }
+      ],
+      "filter_warning": {
+        "entity_id": "binary_sensor.starkvind_replace_filter",
+        "mode": "replacement"
+      }
+    }
+  }
+}

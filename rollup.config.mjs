@@ -74,7 +74,7 @@ export default {
   output: {
     dir: 'dist',
     entryFileNames: 'xiaomi-purifier-card.js',
-    banner: `/*! Xiaomi Purifier Card\n${readFileSync(new URL('./LICENSE', import.meta.url), 'utf8')}*/`,
+    banner: `/*! Breeze Purifier Card\n${readFileSync(new URL('./LICENSE', import.meta.url), 'utf8')}*/`,
     format: 'es',
     inlineDynamicImports: true,
   },

@@ -1,13 +1,14 @@
 {
   "common": {
-    "name": "Purifier Card",
-    "description": "Purifier card allows you to control your smart purifier.",
+    "name": "Breeze Purifier Card",
+    "description": "Compact controls and readings for air purifiers.",
     "not_available": "Entity is not available",
     "toggle_power": "Turn on/off",
     "turn_on": "Turn on",
     "turn_off": "Turn off",
     "preset_mode": "Preset mode",
-    "updating": "Updating…"
+    "updating": "Updating…",
+    "last_hour": "Last hour"
   },
   "state": {
     "on": "On",
@@ -134,7 +135,37 @@
     "add_speed_control": "Add speed target",
     "add_device_setting": "Add device setting",
     "active_entity": "Active when entity",
-    "active_state": "Active state"
+    "active_state": "Active state",
+    "filter_warnings": "Filter maintenance",
+    "filter_enabled": "Show filter warnings",
+    "filter_help": "Uses filter-remaining statistics automatically, or choose a remaining-life or replacement-needed sensor. Healthy filters add no message.",
+    "filter_source": "Filter warning sensor",
+    "filter_automatic": "Automatic from filter statistics",
+    "filter_mode": "Filter sensor meaning",
+    "filter_mode_auto": "Automatic from source",
+    "filter_mode_remaining_percent": "Remaining life (%)",
+    "filter_mode_remaining_days": "Remaining life (days)",
+    "filter_mode_replacement": "Replacement needed (on/off)",
+    "filter_warning": "Warn at or below",
+    "filter_critical": "Replace at or below",
+    "filter_days": "days",
+    "filter_invalid_threshold": "The replacement threshold must not exceed the warning threshold.",
+    "filter_threshold_help": "Thresholds apply to the raw value. Usage hours, filter age, and template conversions do not imply remaining life. Unknown readings are shown as unavailable.",
+    "filter_attribute_options": "Attribute source (optional)",
+    "filter_attribute": "Filter attribute",
+    "filter_attribute_help": "Use an attribute path when the reading is an entity attribute. Leave the sensor empty to read from this fan; choose its meaning explicitly.",
+    "filter_reset": "Use filter statistics automatically",
+    "filter_current_source": "Current source",
+    "filter_no_source": "No matching filter source. Choose a sensor and its meaning, or add a filter-remaining statistic.",
+    "shutdown_timer": "Shutdown timer",
+    "timer_setup_help": "Link a Timer helper (Restore enabled), a dedicated Text helper, and the Breeze shutdown automation. The automation runs in HA after the dashboard closes.",
+    "timer_entity_id": "Timer entity",
+    "timer_automation_entity_id": "Shutdown automation",
+    "timer_deadline_entity_id": "Deadline Text helper",
+    "timer_invalid_entity": "Choose the entity domain shown by this field.",
+    "timer_remove": "Remove shutdown timer",
+    "timer_setup_guide": "Setup guide",
+    "show_pm_trends": "Show one-hour PM history backgrounds"
   },
   "warning": {
     "actions_array": "WARNING: 'actions' has been renamed to 'shortcuts'"
@@ -151,5 +182,34 @@
     "sending": "Sending",
     "waiting": "Waiting for device",
     "unconfirmed": "Device has not confirmed the setting"
+  },
+  "filter": {
+    "warning": "Filter running low",
+    "critical": "Replace filter",
+    "unavailable": "Filter status unavailable",
+    "remaining": "remaining",
+    "days": "days"
+  },
+  "timer": {
+    "title": "Shutdown timer",
+    "cancel": "Cancel timer",
+    "paused": "Paused",
+    "active": "Timer",
+    "waiting_shutdown": "Waiting for shutdown",
+    "off_in": "Off in",
+    "minutes": "min",
+    "hours": "h",
+    "custom": "Custom duration (minutes)",
+    "restart": "Restart timer",
+    "start": "Start timer",
+    "setup_required": "Shutdown setup is incomplete or unavailable. Enable the linked automation and check both helpers.",
+    "turn_on_first": "Turn the purifier on before starting a shutdown timer.",
+    "help": "HA handles shutdown. Changing presets keeps the timer; switching off cancels it.",
+    "automation": "View shutdown automation",
+    "sending": "Sending timer command…",
+    "confirming": "Waiting for timer confirmation…",
+    "timeout": "Timer command timed out. Check its state before retrying.",
+    "unconfirmed": "HA has not confirmed the timer change. Check the timer and automation.",
+    "not_armed": "Shutdown not armed"
   }
 }

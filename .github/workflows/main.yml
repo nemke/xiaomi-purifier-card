@@ -22,5 +22,15 @@ jobs:
       - run: npm test
       - uses: actions/upload-artifact@v4
         with:
-          name: xiaomi-purifier-card
+          name: breeze-purifier-card
           path: dist/xiaomi-purifier-card.js
+
+  blueprint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - run: python -m pip install -r tests/requirements.txt
+      - run: python tests/blueprint_test.py

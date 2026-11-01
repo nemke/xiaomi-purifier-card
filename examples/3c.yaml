@@ -1,4 +1,4 @@
-type: custom:xiaomi-purifier-card
+type: custom:breeze-purifier-card
 entity: fan.mi_air_purifier_3c
 aqi:
   entity_id: sensor.mi_air_purifier_3c_motor_speed

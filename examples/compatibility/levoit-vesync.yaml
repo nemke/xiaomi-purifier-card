@@ -1,0 +1,27 @@
+# Illustrative entity IDs; replace them with your device's entities.
+# These shortcuts assume three speeds. Use your fan's reported percentages.
+type: custom:breeze-purifier-card
+entity: fan.levoit_purifier
+stats:
+  - entity_id: sensor.levoit_particles
+    subtitle: PM 2.5
+  - entity_id: sensor.levoit_renamed_filter
+    subtitle: Filter remaining
+    icon: mdi:air-filter
+filter_warning:
+  entity_id: sensor.levoit_renamed_filter
+  mode: remaining_percent
+shortcuts:
+  - name: Low
+    icon: mdi:fan-speed-1
+    percentage: 33
+  - name: Medium
+    icon: mdi:fan-speed-2
+    percentage: 66
+  - name: High
+    icon: mdi:fan-speed-3
+    percentage: 100
+device_controls:
+  - entity_id: switch.levoit_child_lock
+  - entity_id: switch.levoit_display
+  - entity_id: select.levoit_night_light_level

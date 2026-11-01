@@ -5,11 +5,13 @@ import { repeat } from 'lit/directives/repeat.js';
 import { EditorRows } from './editor-rows';
 import { readValue, shortcutActions } from './model';
 import { detectControls } from './controls';
+import { detectFilterWarning, filterSource, filterThresholds } from './filter';
 import { fireEvent, type HomeAssistant } from 'custom-card-helpers';
 import type {
   PurifierCardConfig,
   PurifierCardStat,
   PurifierCardShortcut,
+  PurifierFilterWarning,
 } from './types';
 import localize from './localize';
 import styles from './editor.css';
@@ -20,7 +22,7 @@ import {
   type RegistryEntity,
 } from './discovery';
 
-@customElement('xiaomi-purifier-card-editor')
+@customElement('breeze-purifier-card-editor')
 export class PurifierCardEditor extends LitElement {
   @property({ attribute: false }) public hass?: HomeAssistant;
   @state() private config: Partial<PurifierCardConfig> = {};
@@ -36,6 +38,7 @@ export class PurifierCardEditor extends LitElement {
   private lastDetectedFan?: string;
   private autoFan?: string;
   private autoReading?: string;
+  private autoFilterWarning?: string;
   private autoStats = new Set<string>();
   private typingSections = new Set<string>();
   private manualSections = new Set<string>();
@@ -90,6 +93,11 @@ export class PurifierCardEditor extends LitElement {
     const config = { ...this.config, entity };
     if (this.autoFan === this.config.entity) {
       if (this.autoReading === JSON.stringify(config.aqi)) delete config.aqi;
+      if (
+        this.autoFilterWarning &&
+        this.autoFilterWarning === JSON.stringify(config.filter_warning)
+      )
+        delete config.filter_warning;
       if (this.autoStats.size) {
         const kept = config.stats?.filter(
           (stat) => !this.autoStats.has(JSON.stringify(stat)),
@@ -110,6 +118,7 @@ export class PurifierCardEditor extends LitElement {
     this.autoControls.clear();
     this.openShortcuts.clear();
     this.autoReading = undefined;
+    this.autoFilterWarning = undefined;
     this.autoStats.clear();
     this.typingSections.clear();
     this.manualSections.clear();
@@ -179,6 +188,21 @@ export class PurifierCardEditor extends LitElement {
         append,
         protectedSections,
       );
+      if (
+        !protectedSections.has('filter_warning') &&
+        this.config.filter_warning === undefined
+      ) {
+        const suggestion = detectFilterWarning(
+          this.hass.states,
+          registry,
+          fan,
+          detected.stats,
+        );
+        if (suggestion) {
+          next.filter_warning = suggestion;
+          this.autoFilterWarning = JSON.stringify(suggestion);
+        }
+      }
       const controls = detectControls(this.hass.states, registry, fan);
       for (const field of ['speed_controls', 'device_controls'] as const) {
         if (
@@ -840,6 +864,189 @@ export class PurifierCardEditor extends LitElement {
       </button>
     </details>`;
   }
+  private renderTimerEditor() {
+    const config = this.config.shutdown_timer ?? {};
+    return html`<details class="timer-editor">
+      <summary>${this.text('shutdown_timer')}</summary>
+      <p class="hint">
+        ${this.text('timer_setup_help')}
+        <a
+          href="https://github.com/nemke/xiaomi-purifier-card/blob/main/docs/TIMER.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          >${this.text('timer_setup_guide')}</a
+        >
+      </p>
+      ${(
+        ['entity_id', 'automation_entity_id', 'deadline_entity_id'] as const
+      ).map(
+        (key) =>
+          html`<label class="field"
+              ><span>${this.text('timer_' + key)}</span
+              ><input
+                type="text"
+                list=${'timer-' + key}
+                aria-label=${this.text('timer_' + key)}
+                .value=${config[key] ?? ''}
+                @input=${() => this.typingSections.add('shutdown_timer')}
+                @change=${(event: Event) =>
+                  this.sourceInput(event, (id) => {
+                    const domain =
+                      key === 'entity_id'
+                        ? 'timer'
+                        : key === 'automation_entity_id'
+                          ? 'automation'
+                          : 'input_text';
+                    const input = event.target as HTMLInputElement;
+                    input.setCustomValidity(
+                      id && !id.startsWith(domain + '.')
+                        ? this.text('timer_invalid_entity')
+                        : '',
+                    );
+                    if (input.reportValidity())
+                      this.change('shutdown_timer', {
+                        ...config,
+                        [key]: id || undefined,
+                      });
+                  })} /></label
+            ><datalist id=${'timer-' + key}>
+              ${Object.keys(this.hass?.states ?? {})
+                .filter((id) =>
+                  id.startsWith(
+                    (key === 'entity_id'
+                      ? 'timer'
+                      : key === 'automation_entity_id'
+                        ? 'automation'
+                        : 'input_text') + '.',
+                  ),
+                )
+                .map(
+                  (id) =>
+                    html`<option
+                      .value=${id}
+                      label=${this.hass?.states[id].attributes.friendly_name ?? id}
+                    ></option>`,
+                )}
+            </datalist>`,
+      )}
+      <button
+        type="button"
+        @click=${() => this.change('shutdown_timer', undefined)}
+      >
+        ${this.text('timer_remove')}
+      </button>
+    </details>`;
+  }
+  private renderFilterEditor() {
+    const warning = this.config.filter_warning ?? {};
+    const source = filterSource(this.hass?.states ?? {}, {
+      stats: this.config.stats ?? [],
+      filter_warning: { ...warning, enabled: true },
+    });
+    const mode = warning.mode ?? source?.mode ?? 'remaining_percent';
+    const thresholds = filterThresholds(mode, warning);
+    const patch = (value: Partial<PurifierFilterWarning>) =>
+      this.change('filter_warning', { ...warning, ...value });
+    return html`<details class="filter-editor">
+      <summary>${this.text('filter_warnings')}</summary>
+      <label class="option"
+        ><input
+          type="checkbox"
+          .checked=${warning.enabled !== false}
+          @change=${(event: Event) => patch({ enabled: (event.target as HTMLInputElement).checked })}
+        />${this.text('filter_enabled')}</label
+      >
+      <p class="hint">${this.text('filter_help')}</p>
+      <p class="hint filter-source-status">
+        ${source ? `${this.text('filter_current_source')}: ${source.entity_id ?? this.config.entity}${source.attribute ? ' · ' + source.attribute : ''}` : this.text('filter_no_source')}
+      </p>
+      <label class="field"
+        ><span>${this.text('filter_source')}</span
+        ><input
+          type="text"
+          list="filter-entities"
+          aria-label=${this.text('filter_source')}
+          .value=${warning.entity_id ?? ''}
+          placeholder=${source?.entity_id ?? (source?.attribute ? `${this.text('fan_attribute')}: ${source.attribute}` : this.text('filter_automatic'))}
+          @input=${() => this.typingSections.add('filter_warning')}
+          @change=${(event: Event) => this.sourceInput(event, (id) => patch({ entity_id: id || undefined, attribute: undefined, mode: undefined, warning_threshold: undefined, critical_threshold: undefined }))}
+      /></label>
+      <label class="field"
+        ><span>${this.text('filter_mode')}</span
+        ><select
+          aria-label=${this.text('filter_mode')}
+          .value=${live(warning.mode ?? '')}
+          @change=${(event: Event) => patch({ mode: ((event.target as HTMLSelectElement).value || undefined) as PurifierFilterWarning['mode'], warning_threshold: undefined, critical_threshold: undefined })}
+        >
+          ${['', 'remaining_percent', 'remaining_days', 'replacement'].map((value) => html`<option .value=${value} .selected=${value === (warning.mode ?? '')}>${this.text('filter_mode_' + (value || 'auto'))}</option>`)}
+        </select></label
+      >
+      ${
+        mode !== 'replacement'
+          ? html`<div class="fields">
+              ${(['warning', 'critical'] as const).map(
+                (level) =>
+                  html`<label class="field"
+                    ><span
+                      >${this.text('filter_' + level)}
+                      (${mode === 'remaining_days' ? this.text('filter_days') : '%'})</span
+                    ><input
+                      type="number"
+                      aria-label=${this.text('filter_' + level)}
+                      .value=${String(thresholds[level])}
+                      min="0"
+                      max=${level === 'critical' ? thresholds.warning : mode === 'remaining_percent' ? 100 : ''}
+                      step="any"
+                      @input=${() => this.typingSections.add('filter_warning')}
+                      @change=${(event: Event) => {
+                        const input = event.target as HTMLInputElement;
+                        input.setCustomValidity('');
+                        if (!input.value || !input.reportValidity()) return;
+                        const next = {
+                          warning: thresholds.warning,
+                          critical: thresholds.critical,
+                          [level]: Number(input.value),
+                        };
+                        if (next.critical > next.warning) {
+                          input.setCustomValidity(
+                            this.text('filter_invalid_threshold'),
+                          );
+                          input.reportValidity();
+                          return;
+                        }
+                        patch({
+                          mode,
+                          warning_threshold: next.warning,
+                          critical_threshold: next.critical,
+                        });
+                      }}
+                  /></label>`,
+              )}
+            </div>`
+          : nothing
+      }
+      <details class="filter-advanced">
+        <summary>${this.text('filter_attribute_options')}</summary>
+        <label class="field"
+          ><span>${this.text('filter_attribute')}</span
+          ><input
+            type="text"
+            aria-label=${this.text('filter_attribute')}
+            .value=${warning.attribute ?? ''}
+            @input=${() => this.typingSections.add('filter_warning')}
+            @change=${(event: Event) => patch({ attribute: (event.target as HTMLInputElement).value.trim() || undefined })}
+        /></label>
+        <p class="hint">${this.text('filter_attribute_help')}</p>
+      </details>
+      <p class="hint">${this.text('filter_threshold_help')}</p>
+      <button
+        type="button"
+        @click=${() => this.change('filter_warning', { enabled: warning.enabled })}
+      >
+        ${this.text('filter_reset')}
+      </button>
+    </details>`;
+  }
   protected render() {
     const device = this.registry.find(
       (entry) => entry.entity_id === this.config.entity,
@@ -948,10 +1155,11 @@ export class PurifierCardEditor extends LitElement {
           ${this.text('add_stat')}
         </button>
       </details>
+      ${this.renderFilterEditor()} ${this.renderTimerEditor()}
       ${this.renderModes()} ${this.renderControlEditor()}
       <details>
         <summary>${this.text('appearance')}</summary>
-        ${(['compact_view', 'show_name', 'show_state', 'show_toolbar', 'show_preset_mode'] as const).map((key) => html`<label class="option"><input type="checkbox" .checked=${this.config[key] ?? key !== 'compact_view'} @change=${(event: Event) => this.change(key, (event.target as HTMLInputElement).checked)} />${this.text(key)}</label>`)}
+        ${(['compact_view', 'show_name', 'show_state', 'show_toolbar', 'show_preset_mode', 'show_pm_trends'] as const).map((key) => html`<label class="option"><input type="checkbox" .checked=${this.config[key] ?? key !== 'compact_view'} @change=${(event: Event) => this.change(key, (event.target as HTMLInputElement).checked)} />${this.text(key)}</label>`)}
       </details>
       <p class="hint">${this.text('shortcuts_help')}</p>
       <datalist id="reading-entities">
@@ -963,6 +1171,22 @@ export class PurifierCardEditor extends LitElement {
             label=${`${related.has(id) ? this.text('related_source') + ' · ' : ''}${entity?.attributes.friendly_name ?? id} · ${entity?.state ?? '—'} ${entity?.attributes.unit_of_measurement ?? ''}`}
           ></option>`;
         })}
+      </datalist>
+      <datalist id="filter-entities">
+        ${Object.keys(this.hass?.states ?? {})
+          .filter((id) => /^(sensor|binary_sensor|fan)\./.test(id))
+          .sort(
+            (a, b) =>
+              Number(related.has(b)) - Number(related.has(a)) ||
+              a.localeCompare(b),
+          )
+          .map(
+            (id) =>
+              html`<option
+                .value=${id}
+                label=${`${related.has(id) ? this.text('related_source') + ' · ' : ''}${this.hass?.states[id].attributes.friendly_name ?? id} · ${this.hass?.states[id].state ?? '—'} ${this.hass?.states[id].attributes.unit_of_measurement ?? ''}`}
+              ></option>`,
+          )}
       </datalist>
       <datalist id="control-entities">
         ${Object.keys(this.hass?.states ?? {})
@@ -986,3 +1210,6 @@ export class PurifierCardEditor extends LitElement {
     return styles;
   }
 }
+
+@customElement('xiaomi-purifier-card-editor')
+export class LegacyPurifierCardEditor extends PurifierCardEditor {}

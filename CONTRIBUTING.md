@@ -28,6 +28,21 @@ Use Conventional Commits, for example `fix: update independent sensors`. Include
 
 Retain existing locale keys and the English fallback. Add new English text first. New translations should be supplied or reviewed by a native speaker, following the upstream contribution policy. Import new locale files in `src/localize.ts`, and update the documented language list. Automated key checks do not establish linguistic accuracy.
 
+## Shutdown blueprint checks
+
+Python 3.14 and the two test-only packages in `tests/requirements.txt` execute the actual YAML/Jinja branches in a simulated HA state machine:
+
+```sh
+python3 -m venv .venv-blueprint
+. .venv-blueprint/bin/activate
+python -m pip install -r tests/requirements.txt
+npm run test:blueprint
+```
+
+These fifteen scenarios supplement `npm test`; CI runs them separately and the release workflow requires both suites. They do not replace an installation test in HA.
+
+The public card type is `breeze-purifier-card`. Keep the legacy `xiaomi-purifier-card` and editor aliases working. The compiled asset intentionally retains `xiaomi-purifier-card.js` so HACS resource URLs keep working.
+
 ## Releases
 
 Update `docs/RELEASE_NOTES.md`, commit the change, and push a version tag such as `v0.1.0`. The release workflow installs the locked dependencies, sets the package version from the tag, runs all checks, and creates a release with the finished JavaScript attached. The release is published only after the asset exists. HACS does not need an npm package.

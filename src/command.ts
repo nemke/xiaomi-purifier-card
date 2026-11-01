@@ -29,8 +29,12 @@ export function commandGoals(actions: PurifierAction[]): CommandGoal[] {
       if (['fan.turn_on', 'switch.turn_on'].includes(action.service)) add('on');
       if (['fan.turn_off', 'switch.turn_off'].includes(action.service))
         add('off');
-      if (action.service === 'fan.set_percentage')
-        add(Number(data.percentage), 'percentage');
+      if (action.service === 'fan.set_percentage') {
+        // HA defines zero percentage as turn-off; integrations may retain the
+        // last setting or report no percentage while off.
+        if (Number(data.percentage) === 0) add('off');
+        else add(Number(data.percentage), 'percentage');
+      }
       if (action.service === 'number.set_value') add(Number(data.value));
       if (action.service === 'select.select_option') add(String(data.option));
     }

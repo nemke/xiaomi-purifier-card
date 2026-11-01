@@ -1,10 +1,16 @@
-# Xiaomi Purifier Card
+# Breeze Purifier Card
 
-A Home Assistant dashboard card for Xiaomi air purifiers, built with TypeScript and Lit. Based on [Purifier Card by Denys Dovhan](https://github.com/denysdovhan/purifier-card), with preserved MIT attribution.
+A compact Home Assistant dashboard card for air purifiers, built with TypeScript and Lit. Formerly Xiaomi Purifier Card. Based on [Purifier Card by Denys Dovhan](https://github.com/denysdovhan/purifier-card), with preserved MIT attribution.
 
 See the [v0.1.12 UX review and previews](docs/ux-review-2026-11-01.md) for the compact editor, configurable modes, and optional device controls.
 
 ![Validation](https://github.com/nemke/xiaomi-purifier-card/actions/workflows/main.yml/badge.svg)
+
+## Breeze rename
+
+The picker, editor and HACS display name are now **Breeze Purifier Card**. New configurations use `custom:breeze-purifier-card`; existing `custom:xiaomi-purifier-card` YAML continues to work through a legacy alias. The GitHub repository and `xiaomi-purifier-card.js` resource filename remain stable for existing HACS installations. Load the resource once; no resource migration is required.
+
+Version **0.1.13** adds an optional [HA-backed shutdown timer](docs/TIMER.md), filter-maintenance warnings, non-Xiaomi compatibility coverage, and one-hour PM background graphs.
 
 ## Features
 
@@ -12,11 +18,13 @@ See the [v0.1.12 UX review and previews](docs/ux-review-2026-11-01.md) for the c
 - Automatic PM2.5, PM10, temperature, humidity, and filter-remaining discovery from the selected purifier’s HA device.
 - A simple power/preset strip and responsive statistics; no purifier image or decorative dial.
 - Separate sensor and number entities update without reloading the dashboard.
+- Optional one-hour PM2.5/PM10 background graphs preserve the compact statistics layout.
 - Shortcuts for native percentages, discrete levels, RPM, or custom action sequences.
 - Numeric range/step validation, ordered commands, and visible command errors.
 - Optional denser spacing, Jinja statistic templates, translations, and `--pc-*` theme variables.
 - Compact visual editor with live statistic summaries, device-related source suggestions, preset visibility/order, and editable shortcuts.
 - Optional device settings and separate speed targets, with discovery for known same-device entities.
+- Optional shutdown timer with presets, custom duration, cancellation, and a persistent HA deadline.
 - Command feedback distinguishes sending, waiting for device confirmation, and unconfirmed settings; reported RPM remains authoritative.
 
 ![Preview with simulated HA states](docs/preview.png)
@@ -24,6 +32,8 @@ See the [v0.1.12 UX review and previews](docs/ux-review-2026-11-01.md) for the c
 Preview uses simulated states and lightweight stand-ins for HA card/icon elements. [Phone preview](docs/preview-mobile.png).
 
 ## Compatibility
+
+Compatibility coverage includes Levoit/VeSync, ESPHome, and IKEA STARKVIND entity layouts. See the [integration matrix and examples](docs/COMPATIBILITY.md) for tested behaviors and manual configuration. These are simulated-state checks; hardware validation remains separate.
 
 Initial target: **Home Assistant 2026.10.4**. The purifier must already be integrated into HA and expose a `fan` entity. The card does not connect directly to Xiaomi devices and needs no additional account, access token, or backend.
 
@@ -35,12 +45,12 @@ The 4 Pro and 3C examples are covered by automated tests with **simulated HA sta
 
 1. Open **HACS → ⋮ → Custom repositories**.
 2. Add `https://github.com/nemke/xiaomi-purifier-card`, category **Dashboard**.
-3. Find **Xiaomi Purifier Card** and download a release.
+3. Find **Breeze Purifier Card** and download the latest release.
 4. Reload the frontend. Check that a JavaScript module resource exists at `/hacsfiles/xiaomi-purifier-card/xiaomi-purifier-card.js`. Add it manually if your resources are managed in YAML.
-5. Add a card using `type: custom:xiaomi-purifier-card`.
+5. Add a card using `type: custom:breeze-purifier-card`. Existing `custom:xiaomi-purifier-card` configurations remain supported.
 
 ```yaml
-type: custom:xiaomi-purifier-card
+type: custom:breeze-purifier-card
 entity: fan.your_purifier
 stats:
   - entity_id: sensor.your_purifier_filter_life_remaining
@@ -58,7 +68,7 @@ For manual installation, download `xiaomi-purifier-card.js` from a release, copy
 
 ## Migrate from purifier-card
 
-The separate tag means this card can coexist with the original. Start by duplicating your old card and changing only its type to `custom:xiaomi-purifier-card`.
+The separate tag means this card can coexist with the original. Start by duplicating your old card and changing only its type to `custom:breeze-purifier-card`.
 
 - Existing `aqi`, `stats`, visibility flags, themes, and templates are retained.
 - Legacy shortcut `speed: Silent` / `speed: Auto` is accepted as a `preset_mode` alias. Prefer `preset_mode` in new configurations.
@@ -79,6 +89,10 @@ Measured RPM is feedback, not a speed target. For manual tuning, use a separate 
 
 ## Configuration
 
+[One-hour PM backgrounds](docs/PM_TRENDS.md) use existing HA history without adding card height or device polling. Disable them with `show_pm_trends: false`.
+
+[Filter-maintenance warnings](docs/FILTER_MAINTENANCE.md) provide configurable remaining-life thresholds and native replacement flags.
+
 The visual editor detects available readings when configuring a purifier. The main reading defaults to measured motor RPM, or the fan’s percentage when RPM is not exposed. PM2.5, PM10, temperature, humidity, and filter remaining are suggested as statistics. Filter life remaining in percent is preferred over remaining days when both are exposed. Detection uses device membership and sensor metadata, so renamed entities are supported. Disabled, missing, or ambiguous sensors are not guessed. Known numeric fan attributes are also supported for older integrations.
 
 For an existing card, click **Detect missing sensors** in the editor. Existing sensor choices, custom labels, units, templates, and shortcuts are preserved. Remove or change any suggestion to override it; state refreshes do not reapply removed defaults. Sensor discovery does not overwrite a field while you are typing.
@@ -95,6 +109,7 @@ Existing templates, fan attributes, and shortcuts are retained when editing labe
 | `show_state`       | `true`               | Show state; unavailability is always shown                 |
 | `show_preset_mode` | `true`               | Show the current preset in the status text                 |
 | `show_toolbar`     | `true`               | Show power and shortcuts                                   |
+| `show_pm_trends`   | `true`               | One-hour history backgrounds for eligible PM statistics    |
 | `compact_view`     | `false`              | Use denser spacing                                         |
 | `aqi`              | `{}`                 | Main reading source                                        |
 | `stats`            | `[]`                 | List of additional readings                                |
@@ -103,6 +118,8 @@ Existing templates, fan attributes, and shortcuts are retained when editing labe
 | `toolbar_style`    | `auto`               | `auto`, `buttons`, or `dropdown`                           |
 | `speed_controls`   | `[]`                 | Writable number targets, separate from measured speed      |
 | `device_controls`  | `[]`                 | Optional switch, select, or number settings                |
+| `filter_warning`   | automatic            | Maintenance source, meaning, and thresholds                |
+| `shutdown_timer`   | unset                | Optional HA timer, automation, and deadline helper         |
 
 ### Reading sources
 
@@ -131,6 +148,24 @@ stats:
     unit: hours
     subtitle: Filter use
 ```
+
+### Filter maintenance
+
+Filter-remaining statistics automatically provide a compact warning when life is low: **20%** for an early warning and **5%** for replacement, or **7 days** and **0 days** for remaining-duration readings. Healthy filters add no message. Click a warning to open its source entity. Off-state purifiers can still show maintenance warnings.
+
+The editor's **Filter maintenance** section lets you disable warnings, choose a source and its meaning, and change thresholds. A uniquely recognized same-device replacement-needed binary sensor takes priority during discovery. Its `on` state means replacement is due; `off` clears the message. Its unavailable state remains unavailable rather than falling back to a potentially conflicting percentage estimate.
+
+```yaml
+filter_warning:
+  entity_id: sensor.purifier_filter_life_remaining
+  mode: remaining_percent
+  warning_threshold: 20
+  critical_threshold: 5
+```
+
+Other meanings are `remaining_days` and `replacement`. An optional `attribute` reads an entity attribute; omitting `entity_id` then reads from the purifier fan. Meanings apply to raw values without conversion. Usage hours, filter age, template conversions, and unrelated binary sensors never automatically imply remaining life. Missing/invalid readings show **Filter status unavailable**. No reset or replacement action is sent.
+
+Omit `filter_warning` to use recognized statistics automatically, or set `filter_warning: { enabled: false }` to disable it. An explicit source overrides automatic selection. Equal candidates require manual selection. Automatic detection preserves renamed sources by saving their verified meaning. Thresholds must be nonnegative, with replacement at or below the warning threshold; percentage thresholds cannot exceed 100 when `mode: remaining_percent` is explicit. If only one threshold is set, the other default adjusts to preserve that ordering. State updates remain subscription-based and RPM refresh behavior is unchanged.
 
 ### Modes and device controls
 

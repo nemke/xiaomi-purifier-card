@@ -1,0 +1,19 @@
+# Copy the blueprint to config/blueprints/automation/breeze/breeze-shutdown.yaml.
+# Enable packages in HA configuration, then adapt fan and entity IDs here.
+timer:
+  living_room_purifier_shutdown:
+    name: Living room purifier shutdown
+    restore: true
+input_text:
+  living_room_purifier_deadline:
+    name: Living room purifier deadline
+    max: 32
+automation:
+  - id: breeze_living_room_shutdown
+    alias: Breeze living room shutdown
+    use_blueprint:
+      path: breeze/breeze-shutdown.yaml
+      input:
+        purifier: fan.zhimi_airp_vb4
+        shutdown_timer: timer.living_room_purifier_shutdown
+        deadline: input_text.living_room_purifier_deadline
