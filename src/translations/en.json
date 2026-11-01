@@ -6,7 +6,8 @@
     "toggle_power": "Turn on/off",
     "turn_on": "Turn on",
     "turn_off": "Turn off",
-    "preset_mode": "Preset mode"
+    "preset_mode": "Preset mode",
+    "updating": "Updating…"
   },
   "state": {
     "on": "On",

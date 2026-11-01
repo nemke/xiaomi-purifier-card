@@ -107,12 +107,18 @@ ha-icon {
 }
 .speed-pill {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 48px;
   border-radius: 14px;
   background: var(--pc-toolbar-background);
   padding: 2px 4px;
+}
+.refresh-status {
+  color: var(--pc-secondary-text-color);
+  font-size: 10px;
+  padding: 0 6px 4px;
 }
 .current-aqi {
   display: flex;

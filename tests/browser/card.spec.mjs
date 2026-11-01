@@ -86,6 +86,149 @@ test('header readings stay read-only and refresh without sending speed commands'
   await expect(card.locator('.number-on')).toHaveText('—');
 });
 
+async function enableRefresh(page, behavior = 'success', reading = true) {
+  await page.clock.install({ time: new Date('2026-11-01T12:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-11-01T12:00:01Z'));
+  await page.evaluate(
+    ({ behavior, reading }) => {
+      window.refreshCalls = [];
+      window.hass.services = { homeassistant: { update_entity: {} } };
+      if (reading)
+        window.cards[0].setConfig({
+          ...window.configs[0],
+          aqi: { entity_id: 'sensor.zhimi_airp_vb4_motor_speed', unit: 'rpm' },
+        });
+      else window.cards[0].setConfig({ entity: 'fan.zhimi_airp_vb4' });
+      window.updateEntity('sensor.zhimi_airp_vb4_motor_speed', 488);
+      const original = window.hass.callService;
+      window.hass.callService = async (domain, service, data, target) => {
+        if (domain === 'homeassistant' && service === 'update_entity') {
+          window.refreshCalls.push({ domain, service, data, target });
+          if (behavior === 'reject') throw new Error('Not allowed to refresh');
+          if (behavior === 'hang') return new Promise(() => {});
+          if (reading)
+            window.updateEntity('sensor.zhimi_airp_vb4_motor_speed', 750);
+          return;
+        }
+        return original(domain, service, data, target);
+      };
+    },
+    { behavior, reading },
+  );
+}
+
+test('preset commands request a fresh RPM reading with one bounded settling follow-up', async ({
+  page,
+}) => {
+  await enableRefresh(page);
+  const card = page.locator('xiaomi-purifier-card').first();
+  await card.getByRole('button', { name: 'Silent', exact: true }).click();
+  await expect(card.locator('.speed-pill').getByRole('status')).toHaveText(
+    'Updating…',
+  );
+  await expect(card.locator('.number-on')).toHaveText('488');
+  expect(await page.evaluate(() => window.refreshCalls)).toEqual([]);
+  await page.clock.runFor(1000);
+  expect(await page.evaluate(() => window.refreshCalls)).toEqual([
+    {
+      domain: 'homeassistant',
+      service: 'update_entity',
+      data: { entity_id: 'sensor.zhimi_airp_vb4_motor_speed' },
+      target: undefined,
+    },
+  ]);
+  await expect(card.locator('.number-on')).toHaveText('750');
+  await expect(card.locator('.speed-pill').getByRole('status')).toHaveCount(0);
+  await page.clock.runFor(10000);
+  expect(await page.evaluate(() => window.refreshCalls.length)).toBe(2);
+  await page.clock.runFor(60000);
+  expect(await page.evaluate(() => window.refreshCalls.length)).toBe(2);
+});
+
+test('rapid preset changes replace queued refreshes and removal cancels the follow-up', async ({
+  page,
+}) => {
+  await enableRefresh(page);
+  const card = page.locator('xiaomi-purifier-card').first();
+  await card.getByRole('button', { name: 'Silent', exact: true }).click();
+  await page.clock.runFor(500);
+  await card.getByRole('button', { name: 'Auto', exact: true }).click();
+  await page.clock.runFor(500);
+  expect(await page.evaluate(() => window.refreshCalls.length)).toBe(0);
+  await page.clock.runFor(500);
+  expect(await page.evaluate(() => window.refreshCalls.length)).toBe(1);
+  await page.evaluate(() => window.cards[0].remove());
+  await page.clock.runFor(60000);
+  expect(await page.evaluate(() => window.refreshCalls.length)).toBe(1);
+});
+
+test('changing purifier cancels a refresh queued for the old reading', async ({
+  page,
+}) => {
+  await enableRefresh(page);
+  const card = page.locator('xiaomi-purifier-card').first();
+  await card.getByRole('button', { name: 'Silent', exact: true }).click();
+  await page.evaluate(() =>
+    window.cards[0].setConfig({ entity: 'fan.mi_air_purifier_3c' }),
+  );
+  await page.clock.runFor(60000);
+  expect(await page.evaluate(() => window.refreshCalls.length)).toBe(0);
+  await expect(card.locator('.speed-pill').getByRole('status')).toHaveCount(0);
+});
+
+for (const behavior of ['reject', 'hang'])
+  test(`a ${behavior} refresh leaves successful commands and normal sensor updates intact`, async ({
+    page,
+  }) => {
+    await enableRefresh(page, behavior);
+    const card = page.locator('xiaomi-purifier-card').first();
+    await card.getByRole('button', { name: 'Silent', exact: true }).click();
+    await page.clock.runFor(11000);
+    await expect(card.locator('.speed-pill').getByRole('status')).toHaveCount(
+      0,
+    );
+    await expect(card.getByRole('alert')).toHaveCount(0);
+    await expect(
+      card.getByRole('button', { name: 'Auto', exact: true }),
+    ).toBeEnabled();
+    await page.clock.runFor(60000);
+    expect(await page.evaluate(() => window.refreshCalls.length)).toBe(1);
+    await page.evaluate(() =>
+      window.updateEntity('sensor.zhimi_airp_vb4_motor_speed', 900),
+    );
+    await expect(card.locator('.number-on')).toHaveText('900');
+  });
+
+test('failed commands do not queue refresh requests', async ({ page }) => {
+  await enableRefresh(page);
+  await page.evaluate(() => {
+    window.rejectCommand = true;
+  });
+  const card = page.locator('xiaomi-purifier-card').first();
+  await card.getByRole('button', { name: 'Silent', exact: true }).click();
+  await expect(card.getByRole('alert')).toContainText(
+    'Device rejected command',
+  );
+  await page.clock.runFor(60000);
+  expect(await page.evaluate(() => window.refreshCalls.length)).toBe(0);
+  await expect(card.locator('.speed-pill').getByRole('status')).toHaveCount(0);
+});
+
+test('fan-attribute readings request the fan entity rather than an invented RPM sensor', async ({
+  page,
+}) => {
+  await enableRefresh(page, 'success', false);
+  await page
+    .locator('xiaomi-purifier-card')
+    .first()
+    .getByRole('button', { name: 'Silent', exact: true })
+    .click();
+  await page.clock.runFor(1000);
+  expect(await page.evaluate(() => window.refreshCalls[0].data)).toEqual({
+    entity_id: 'fan.zhimi_airp_vb4',
+  });
+});
+
 test('exposes HA websocket error messages and clears pending state', async ({
   page,
 }) => {

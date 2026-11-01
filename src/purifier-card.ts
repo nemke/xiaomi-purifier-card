@@ -36,9 +36,12 @@ export class PurifierCard extends LitElement {
   @state() private config!: PurifierCardConfig;
   @state() private pending = false;
   @state() private error = '';
+  @state() private refreshing = false;
   @state() private narrow = false;
   @state() private tiny = false;
   private sizeObserver?: ResizeObserver;
+  private refreshTimer?: ReturnType<typeof setTimeout>;
+  private refreshGeneration = 0;
 
   public connectedCallback() {
     super.connectedCallback();
@@ -50,6 +53,7 @@ export class PurifierCard extends LitElement {
   }
 
   public disconnectedCallback() {
+    this.cancelRefresh();
     this.sizeObserver?.disconnect();
     super.disconnectedCallback();
   }
@@ -65,6 +69,7 @@ export class PurifierCard extends LitElement {
     return { entity: entities.find((id) => id.startsWith('fan.')) ?? '' };
   }
   public setConfig(config: Partial<PurifierCardConfig>) {
+    this.cancelRefresh();
     this.config = buildConfig(config);
   }
   private get entity(): PurifierEntity | undefined {
@@ -107,6 +112,8 @@ export class PurifierCard extends LitElement {
 
   private async execute(actions: PurifierAction[]) {
     if (this.pending || !this.available) return;
+    this.cancelRefresh();
+    const generation = this.refreshGeneration;
     this.pending = true;
     this.error = '';
     try {
@@ -142,6 +149,7 @@ export class PurifierCard extends LitElement {
           clearTimeout(timer);
         }
       }
+      if (generation === this.refreshGeneration) this.refreshAfterAction();
     } catch (error) {
       this.error =
         error && typeof error === 'object' && 'message' in error
@@ -150,6 +158,53 @@ export class PurifierCard extends LitElement {
     } finally {
       this.pending = false;
     }
+  }
+
+  private cancelRefresh() {
+    clearTimeout(this.refreshTimer);
+    this.refreshGeneration++;
+    this.refreshing = false;
+  }
+
+  private refreshAfterAction() {
+    if (!this.isConnected || !this.hass.services?.homeassistant?.update_entity)
+      return;
+    const generation = this.refreshGeneration;
+    // Refresh the reading's entity only. Xiaomi sensors share a coordinator,
+    // so requesting every statistic separately would repeat the device poll.
+    const entityId = this.config.aqi.entity_id || this.config.entity;
+    const current = () =>
+      this.isConnected && generation === this.refreshGeneration;
+    const request = async (followUp = false) => {
+      if (!current()) return;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      let succeeded = false;
+      try {
+        await Promise.race([
+          this.hass.callService('homeassistant', 'update_entity', {
+            entity_id: entityId,
+          }),
+          new Promise<never>((_, reject) => {
+            timeout = setTimeout(
+              () => reject(new Error('Refresh timed out')),
+              10000,
+            );
+          }),
+        ]);
+        succeeded = true;
+      } catch {
+        // A refresh is best effort; a successful device command stays successful.
+        // Normal HA state subscriptions continue if refresh is unsupported/denied.
+      } finally {
+        clearTimeout(timeout);
+        if (current()) this.refreshing = false;
+      }
+      if (current() && succeeded && !followUp)
+        // Allow both motor settling and HA's default 10-second refresh cooldown.
+        this.refreshTimer = setTimeout(() => void request(true), 10000);
+    };
+    this.refreshing = true;
+    this.refreshTimer = setTimeout(() => void request(), 1000);
   }
 
   private runShortcut(shortcut: PurifierCardShortcut) {
@@ -175,7 +230,16 @@ export class PurifierCard extends LitElement {
   }
 
   private renderSpeed() {
-    return html`<div class="speed-pill">${this.renderAQI()}</div>`;
+    return html`<div class="speed-pill">
+      ${this.renderAQI()}
+      ${
+        this.pending || this.refreshing
+          ? html`<span class="refresh-status" role="status"
+              >${localize('common.updating')}</span
+            >`
+          : nothing
+      }
+    </div>`;
   }
 
   private toolbarShortcuts(): PurifierCardShortcut[] {

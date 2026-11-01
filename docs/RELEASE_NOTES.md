@@ -1,9 +1,10 @@
-Read-only fan-speed display.
+Faster sensor feedback after purifier commands.
 
-- Removes the header plus/minus buttons and expandable percentage slider. Xiaomi percentage commands can select modes or discrete levels and do not necessarily set the measured RPM shown beside them.
-- Keeps the live RPM reading (or percentage fallback), power/preset controls, and explicitly configured speed shortcuts.
-- Manual speed targets remain available through shortcuts that use the integration's separate Favorite RPM/level or Fan level number entities.
+- Requests a fresh main reading one second after a successful command, with one follow-up ten seconds after the initial refresh completes to capture motor settling.
+- Shows Updating… during the command and first refresh; RPM remains the actual reading supplied by HA.
+- Coalesces queued refreshes when another command is sent, cancels queued work when the card is removed/reconfigured, and bounds waiting for a refresh to ten seconds.
+- Refresh failures do not turn successful device commands into errors. Normal HA sensor updates continue unchanged. No continuous polling is added.
 
-Validation: full lint, typecheck, 28 model tests, build, and 32 Chromium browser tests, including read-only RPM updates and percentage fallback without commands.
+Validation: lint, typecheck, 28 model tests, production build, and 39 Chromium browser tests covering refresh timing, cancellation, sensor updates, and failed/timed-out requests.
 
-Update through HACS and reload the frontend. No configuration changes are required.
+Update through HACS and reload the frontend. No configuration changes are required. Actual update timing remains subject to the integration's throttling and device response.
