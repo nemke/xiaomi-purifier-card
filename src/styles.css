@@ -114,24 +114,6 @@ ha-icon {
   background: var(--pc-toolbar-background);
   padding: 2px 4px;
 }
-.step-button {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  min-height: 44px;
-  padding: 0;
-  font-size: 24px;
-  line-height: 1;
-  background: transparent;
-  border-radius: 10px;
-  color: var(--pc-secondary-text-color);
-}
-.reading-button {
-  min-height: 44px;
-  padding: 4px;
-  background: transparent;
-  border-radius: 8px;
-}
 .current-aqi {
   display: flex;
   align-items: baseline;
@@ -201,22 +183,6 @@ ha-icon {
 .control-button:hover:enabled:not(.active) {
   background: var(--pc-background);
 }
-.controls {
-  padding: 0 16px 12px;
-}
-.speed-control {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--pc-secondary-text-color);
-  min-height: 36px;
-}
-.speed-control input {
-  flex: 1;
-  min-width: 0;
-  accent-color: var(--pc-slider-bar-color);
-}
 .stats {
   display: grid;
   grid-template-columns: repeat(var(--stat-columns, 4), minmax(0, 1fr));
@@ -276,9 +242,6 @@ ha-icon {
 }
 .tiny .friendly-name {
   font-size: 14px;
-}
-.tiny .step-button {
-  width: 36px;
 }
 .narrow .stats-block {
   border-bottom: 1px solid var(--pc-divider-color);

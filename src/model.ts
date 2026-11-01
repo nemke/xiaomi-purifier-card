@@ -7,13 +7,6 @@ import type {
   PurifierCardShortcut,
 } from './types';
 
-/** Use integer range positions to avoid a fractional last stop exceeding 100. */
-export function percentageStops(step: number | undefined): number {
-  return typeof step === 'number' && Number.isFinite(step) && step > 0
-    ? Math.max(1, Math.round(100 / step))
-    : 100;
-}
-
 export function readValue(
   states: HassEntities,
   source: PurifierAQI,

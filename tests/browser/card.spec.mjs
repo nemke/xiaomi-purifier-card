@@ -48,119 +48,42 @@ test('validates the complete shortcut before any command is sent', async ({
   expect(await page.evaluate(() => window.calls.length)).toBe(0);
 });
 
-test('supports percentage controls including zero and compact view', async ({
+test('header readings stay read-only and refresh without sending speed commands', async ({
   page,
 }) => {
   await page.evaluate(() => {
-    window.cards[0].setConfig({ ...window.configs[0], compact_view: true });
-    window.updateEntity('fan.zhimi_airp_vb4', 'on', {
-      ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
-      percentage: 50,
-      percentage_step: 1,
-      supported_features: 9,
+    window.cards[0].setConfig({
+      ...window.configs[0],
+      compact_view: true,
+      aqi: { entity_id: 'sensor.zhimi_airp_vb4_motor_speed', unit: 'rpm' },
     });
+    window.updateEntity('sensor.zhimi_airp_vb4_motor_speed', 488);
   });
   const card = page.locator('xiaomi-purifier-card').first();
-  await expect(card.locator('.dial')).toHaveCount(0);
-  await card
-    .getByRole('button', { name: 'Adjust fan speed', exact: true })
-    .click();
-  const slider = card.getByRole('slider', { name: 'Fan speed' });
-  await slider.fill('0');
-  await expect.poll(() => page.evaluate(() => window.calls.length)).toBe(1);
-  expect(await page.evaluate(() => window.calls[0].data.percentage)).toBe(0);
-});
-
-test('resynchronizes the speed thumb when a mode change reports an unchanged percentage', async ({
-  page,
-}) => {
-  await page.evaluate(() =>
-    window.updateEntity('fan.zhimi_airp_vb4', 'on', {
-      ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
-      percentage: 100,
-      percentage_step: 1,
-      supported_features: 9,
-    }),
-  );
-  const card = page.locator('xiaomi-purifier-card').first();
-  await card
-    .getByRole('button', { name: 'Adjust fan speed', exact: true })
-    .click();
-  const slider = card.getByRole('slider', { name: 'Fan speed' });
-  await expect(slider).toHaveValue('100');
-  await slider.fill('65');
-  await card.getByRole('button', { name: 'Favorite', exact: true }).click();
-  await page.evaluate(() =>
-    window.updateEntity('fan.zhimi_airp_vb4', 'on', {
-      ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
-      preset_mode: 'Favorite',
-      percentage: 100,
-    }),
-  );
-  await expect(card.locator('.speed-control > span')).toHaveText('100%');
-  await expect(slider).toHaveValue('100');
-});
-
-test('the real 4 Pro fractional step reaches 100 percent and sends integer percentages', async ({
-  page,
-}) => {
-  await page.evaluate(() =>
+  await expect(card.locator('.number-on')).toHaveText('488');
+  await expect(card.locator('.aqi-unit')).toHaveText('rpm');
+  await expect(
+    card.locator('.speed-pill button, input[type="range"]'),
+  ).toHaveCount(0);
+  await card.locator('.speed-pill').click();
+  await page.evaluate(() => {
+    window.updateEntity('sensor.zhimi_airp_vb4_motor_speed', 750);
     window.updateEntity('fan.zhimi_airp_vb4', 'on', {
       ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
       preset_mode: 'Favorite',
       percentage: 100,
       percentage_step: 33.333333333333336,
-      supported_features: 57,
-    }),
-  );
-  const card = page.locator('xiaomi-purifier-card').first();
-  await card
-    .getByRole('button', { name: 'Adjust fan speed', exact: true })
-    .click();
-  const slider = card.getByRole('slider', { name: 'Fan speed' });
-  await expect(slider).toHaveAttribute('max', '3');
-  await expect(slider).toHaveValue('3');
-  await expect(card.locator('.speed-control > span')).toHaveText('100%');
-  await slider.fill('2');
-  await expect.poll(() => page.evaluate(() => window.calls.length)).toBe(1);
-  expect(await page.evaluate(() => window.calls[0].data.percentage)).toBe(67);
-  await page.evaluate(() =>
-    window.updateEntity('fan.zhimi_airp_vb4', 'on', {
-      ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
-      percentage: 66,
-    }),
-  );
-  await expect(slider).toHaveValue('2');
-  await expect(card.locator('.speed-control > span')).toHaveText('66%');
-});
-
-test('sensor refreshes do not interrupt a speed adjustment', async ({
-  page,
-}) => {
-  await page.evaluate(() =>
-    window.updateEntity('fan.zhimi_airp_vb4', 'on', {
-      ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
-      percentage: 100,
-      percentage_step: 1,
-      supported_features: 57,
-    }),
-  );
-  const card = page.locator('xiaomi-purifier-card').first();
-  await card
-    .getByRole('button', { name: 'Adjust fan speed', exact: true })
-    .click();
-  const slider = card.getByRole('slider', { name: 'Fan speed' });
-  await slider.evaluate((input) => {
-    input.value = '65';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
   });
+  await expect(card.locator('.number-on')).toHaveText('750');
+  await expect(
+    card.locator('.speed-pill button, input[type="range"]'),
+  ).toHaveCount(0);
+  expect(await page.evaluate(() => window.calls)).toEqual([]);
   await page.evaluate(() =>
-    window.updateEntity('sensor.zhimi_airp_vb4_motor_speed', 800),
+    window.updateEntity('sensor.zhimi_airp_vb4_motor_speed', 'unavailable'),
   );
-  await expect(slider).toHaveValue('65');
-  await expect(card.locator('.speed-control > span')).toHaveText('65%');
-  await slider.dispatchEvent('pointercancel');
-  await expect(slider).toHaveValue('100');
+  await expect(card.locator('.number-on')).toHaveText('—');
 });
 
 test('exposes HA websocket error messages and clears pending state', async ({
@@ -219,40 +142,26 @@ test('a bare compact card provides power and supported preset buttons automatica
   );
 });
 
-test('compact speed step buttons respect fractional device steps and boundaries', async ({
+test('percentage fallback is a reading rather than a mode-changing control', async ({
   page,
 }) => {
-  await page.evaluate(() =>
+  await page.evaluate(() => {
+    window.cards[0].setConfig({ entity: 'fan.zhimi_airp_vb4' });
     window.updateEntity('fan.zhimi_airp_vb4', 'on', {
       ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
       percentage: 33,
       percentage_step: 33.333333333333336,
       supported_features: 57,
-    }),
-  );
+    });
+  });
   const card = page.locator('xiaomi-purifier-card').first();
-  await expect(card.getByRole('slider', { name: 'Fan speed' })).toHaveCount(0);
-  await card
-    .getByRole('button', { name: 'Increase fan speed', exact: true })
-    .click();
-  expect(await page.evaluate(() => window.calls.at(-1).data.percentage)).toBe(
-    67,
-  );
-  await page.evaluate(() =>
-    window.updateEntity('fan.zhimi_airp_vb4', 'on', {
-      ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
-      percentage: 100,
-    }),
-  );
+  await expect(card.locator('.number-on')).toHaveText('33');
+  await expect(card.locator('.aqi-unit')).toHaveText('%');
   await expect(
-    card.getByRole('button', { name: 'Increase fan speed', exact: true }),
-  ).toBeDisabled();
-  await card
-    .getByRole('button', { name: 'Decrease fan speed', exact: true })
-    .click();
-  expect(await page.evaluate(() => window.calls.at(-1).data.percentage)).toBe(
-    67,
-  );
+    card.locator('.speed-pill button, input[type="range"]'),
+  ).toHaveCount(0);
+  await card.locator('.speed-pill').click();
+  expect(await page.evaluate(() => window.calls)).toEqual([]);
 });
 
 test('updates independent AQI and statistic entities including zero and unavailable readings', async ({

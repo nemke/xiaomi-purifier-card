@@ -1,13 +1,9 @@
-Compact card layout and automatic filter-remaining detection.
+Read-only fan-speed display.
 
-- Replaces the large purifier artwork and dial with a compact header: device name/status on the left and fan speed on the right.
-- Adds plus/minus buttons for supported speed steps. Tap the reading to expand the percentage slider.
-- Uses a rounded power/preset strip; missing supported presets are supplied automatically alongside configured shortcuts.
-- Keeps all five statistics in a row on wider cards; narrow cards use two columns with the final odd statistic spanning the last row.
-- Detects filter life remaining from the same device, preferring percent over remaining time. Existing labels and selected sources are preserved without duplicate filter statistics.
-- Retains manual overrides, templates, the typing fix, and the 4 Pro fractional-step fix.
-- Removes the artwork from the JavaScript bundle, reducing the uncompressed build from about 2.35MB to about 97KB.
+- Removes the header plus/minus buttons and expandable percentage slider. Xiaomi percentage commands can select modes or discrete levels and do not necessarily set the measured RPM shown beside them.
+- Keeps the live RPM reading (or percentage fallback), power/preset controls, and explicitly configured speed shortcuts.
+- Manual speed targets remain available through shortcuts that use the integration's separate Favorite RPM/level or Fan level number entities.
 
-Validation: 29 model tests and 35 Chromium browser tests, including preset controls, speed steps, filter detection, and desktop/phone layouts.
+Validation: full lint, typecheck, 28 model tests, build, and 32 Chromium browser tests, including read-only RPM updates and percentage fallback without commands.
 
-Update through HACS and reload the frontend. The compact layout is applied automatically to existing cards. In the card editor, click **Detect missing sensors** to add filter remaining if it is not already configured. Every detected statistic remains editable.
+Update through HACS and reload the frontend. No configuration changes are required.

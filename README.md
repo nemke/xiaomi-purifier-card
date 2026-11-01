@@ -6,7 +6,7 @@ A Home Assistant dashboard card for Xiaomi air purifiers, built with TypeScript 
 
 ## Features
 
-- Compact header with purifier name, state, measured fan speed, and step controls.
+- Compact header with purifier name, state, and a live read-only fan-speed reading.
 - Automatic PM2.5, PM10, temperature, humidity, and filter-remaining discovery from the selected purifier’s HA device.
 - A simple power/preset strip and responsive statistics; no purifier image or decorative dial.
 - Separate sensor and number entities update without reloading the dashboard.
@@ -61,11 +61,13 @@ The separate tag means this card can coexist with the original. Start by duplica
 - Combined shortcut actions now execute **preset → custom service → percentage**, awaiting each command and stopping on failure. The complete sequence is validated before sending commands. HA service completion does not guarantee that device telemetry has caught up; active highlighting follows reported state.
 - Custom services receive their own `service_data` and `target`; a fan target is only inferred for fan-domain services.
 - Custom service shortcuts are no longer permanently highlighted. Recognized preset/percentage/number combinations must all match; arbitrary actions can specify `state_entity` and `state`.
-- The card uses a compact layout for both existing and new configurations. Plus/minus controls adjust one supported speed step. Tap the header reading to open the percentage slider.
+- The card uses a compact layout for both existing and new configurations. The header reading is read-only: percentage commands can change modes or discrete levels on Xiaomi models, so it has no plus/minus buttons or slider.
 - Supported preset buttons are provided automatically. Custom shortcuts are retained, with missing preset modes added to keep every exposed mode accessible.
 - `compact_view` now selects denser spacing; the large image and dial have been removed.
 
 Use [the 4 Pro example](examples/4-pro.yaml) or [the 3C example](examples/3c.yaml) for the supplied entity names. The 4 Pro `fan_level` example selects **Fan**, following the `xiaomi_miio` integration's mode semantics; verify your integration's `preset_modes`. The 3C RPM example selects **Favorite**. Percentage shortcut names in these examples are labels for user-selected settings, not measured airflow percentages.
+
+Measured RPM is feedback, not a speed target. For manual tuning, use a separate `number` entity exposed by your integration: the 3C example uses its Favorite RPM target, while other models expose Favorite levels or Fan levels. Use the entity's actual range and step; a Fan level is not an RPM value. See the [HA Xiaomi integration](https://www.home-assistant.io/integrations/xiaomi_miio/#xiaomi-air-purifier).
 
 `filter_life_remaining` is remaining filter life, so it should be labelled **Filter remaining**. `aqi` is the inherited configuration key; displaying PM2.5 concentration does not calculate an air quality index.
 
@@ -146,19 +148,19 @@ The card disables controls while the fan is unavailable or a command is pending.
 
 The card follows HA theme colors. Existing variables are retained:
 
-| Variable                    | Purpose                              |
-| --------------------------- | ------------------------------------ |
-| `--pc-background`           | Card background                      |
-| `--pc-primary-text-color`   | Name and readings                    |
-| `--pc-secondary-text-color` | State, labels, units                 |
-| `--pc-icon-color`           | Header icons                         |
-| `--pc-slider-path-color`    | Legacy track color                   |
-| `--pc-slider-bar-color`     | Active preset and speed-slider color |
-| `--pc-toolbar-background`   | Toolbar background                   |
-| `--pc-toolbar-text-color`   | Toolbar text                         |
-| `--pc-toolbar-icon-color`   | Toolbar icons                        |
-| `--pc-divider-color`        | Separators                           |
-| `--pc-spacing`              | Base spacing, default `10px`         |
+| Variable                    | Purpose                      |
+| --------------------------- | ---------------------------- |
+| `--pc-background`           | Card background              |
+| `--pc-primary-text-color`   | Name and readings            |
+| `--pc-secondary-text-color` | State, labels, units         |
+| `--pc-icon-color`           | Header icons                 |
+| `--pc-slider-path-color`    | Legacy track color           |
+| `--pc-slider-bar-color`     | Active preset color          |
+| `--pc-toolbar-background`   | Toolbar background           |
+| `--pc-toolbar-text-color`   | Toolbar text                 |
+| `--pc-toolbar-icon-color`   | Toolbar icons                |
+| `--pc-divider-color`        | Separators                   |
+| `--pc-spacing`              | Base spacing, default `10px` |
 
 Override them through a theme or optional card-mod styling:
 

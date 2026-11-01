@@ -6,7 +6,6 @@ import {
   type CSSResultGroup,
 } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { live } from 'lit/directives/live.js';
 import { fireEvent, type HomeAssistant } from 'custom-card-helpers';
 import registerTemplates from 'ha-template';
 import styles from './styles.css';
@@ -19,7 +18,6 @@ import {
   referencedEntities,
   shortcutActions,
   shortcutActive,
-  percentageStops,
 } from './model';
 import type {
   PurifierAction,
@@ -38,8 +36,6 @@ export class PurifierCard extends LitElement {
   @state() private config!: PurifierCardConfig;
   @state() private pending = false;
   @state() private error = '';
-  @state() private draftPercentage: number | undefined;
-  @state() private speedExpanded = false;
   @state() private narrow = false;
   @state() private tiny = false;
   private sizeObserver?: ResizeObserver;
@@ -98,19 +94,6 @@ export class PurifierCard extends LitElement {
         (id) => previous.states[id] !== this.hass.states[id],
       )
     );
-  }
-
-  protected willUpdate(changed: PropertyValues) {
-    const previous = changed.get('hass') as HomeAssistant | undefined;
-    const previousFan = previous?.states[this.config.entity];
-    if (
-      previousFan &&
-      (previousFan.attributes.preset_mode !==
-        this.entity?.attributes.preset_mode ||
-        this.entity?.state !== 'on')
-    ) {
-      this.draftPercentage = undefined;
-    }
   }
 
   private moreInfo(entityId = this.config.entity) {
@@ -191,103 +174,8 @@ export class PurifierCard extends LitElement {
     </div>`;
   }
 
-  private renderControls() {
-    if (!this.speedExpanded) return nothing;
-    const entity = this.entity;
-    const hasPercentage = !!(Number(entity?.attributes.supported_features) & 1);
-    const percentage = entity?.attributes.percentage;
-    const displayedPercentage = this.draftPercentage ?? percentage;
-    const stops = percentageStops(entity?.attributes.percentage_step);
-    return html`<div class="controls" id="speed-adjustment">
-      ${
-        hasPercentage
-          ? html`<label class="speed-control"
-              ><span>${displayedPercentage ?? '—'}%</span
-              ><input
-                type="range"
-                aria-label="Fan speed"
-                aria-valuetext=${`${displayedPercentage ?? 0}%`}
-                min="0"
-                max=${stops}
-                step="1"
-                .value=${live(String(Math.round(((displayedPercentage ?? 0) * stops) / 100)))}
-                ?disabled=${!this.available || entity?.state !== 'on' || this.pending}
-                @input=${(event: Event) => {
-                  this.draftPercentage = Math.round(
-                    (Number((event.target as HTMLInputElement).value) * 100) /
-                      stops,
-                  );
-                }}
-                @pointercancel=${() => {
-                  this.draftPercentage = undefined;
-                }}
-                @blur=${() => {
-                  this.draftPercentage = undefined;
-                }}
-                @change=${(event: Event) => {
-                  const percentage = Math.round(
-                    (Number((event.target as HTMLInputElement).value) * 100) /
-                      stops,
-                  );
-                  this.draftPercentage = undefined;
-                  void this.execute([
-                    {
-                      service: 'fan.set_percentage',
-                      service_data: {
-                        percentage,
-                      },
-                    },
-                  ]);
-                }}
-            /></label>`
-          : nothing
-      }
-    </div>`;
-  }
-
-  private adjustSpeed(direction: number) {
-    const steps = percentageStops(this.entity?.attributes.percentage_step);
-    const current = Math.round(
-      ((this.entity?.attributes.percentage ?? 0) * steps) / 100,
-    );
-    const next = Math.max(0, Math.min(steps, current + direction));
-    void this.execute([
-      {
-        service: 'fan.set_percentage',
-        service_data: { percentage: Math.round((next * 100) / steps) },
-      },
-    ]);
-  }
-
   private renderSpeed() {
-    const entity = this.entity;
-    const hasPercentage = !!(Number(entity?.attributes.supported_features) & 1);
-    const disabled =
-      !this.available ||
-      entity?.state !== 'on' ||
-      this.pending ||
-      typeof entity?.attributes.percentage !== 'number';
-    return html`<div class="speed-pill">
-      ${hasPercentage ? html`<button type="button" class="step-button" aria-label="Decrease fan speed" ?disabled=${disabled || entity!.attributes.percentage! <= 0} @click=${() => this.adjustSpeed(-1)}>−</button>` : nothing}
-      ${
-        hasPercentage
-          ? html`<button
-              type="button"
-              class="reading-button"
-              aria-label="Adjust fan speed"
-              aria-expanded=${String(this.speedExpanded)}
-              aria-controls="speed-adjustment"
-              ?disabled=${!this.available || this.pending}
-              @click=${() => {
-                this.speedExpanded = !this.speedExpanded;
-              }}
-            >
-              ${this.renderAQI()}
-            </button>`
-          : this.renderAQI()
-      }
-      ${hasPercentage ? html`<button type="button" class="step-button" aria-label="Increase fan speed" ?disabled=${disabled || entity!.attributes.percentage! >= 100} @click=${() => this.adjustSpeed(1)}>+</button>` : nothing}
-    </div>`;
+    return html`<div class="speed-pill">${this.renderAQI()}</div>`;
   }
 
   private toolbarShortcuts(): PurifierCardShortcut[] {
@@ -447,7 +335,6 @@ export class PurifierCard extends LitElement {
             </div>`
           : nothing
       }
-      ${this.renderControls()}
       ${this.error ? html`<div class="error" role="alert">${this.error}</div>` : nothing}
       ${this.renderStats()}
     </ha-card>`;
