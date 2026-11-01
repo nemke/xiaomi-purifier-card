@@ -38,6 +38,8 @@ export interface PurifierCardStat {
   value_template?: string;
   unit?: string;
   subtitle?: string;
+  /** Omit for automatic icons; an empty string keeps the text label. */
+  icon?: string;
 }
 
 export interface PurifierCardShortcut {

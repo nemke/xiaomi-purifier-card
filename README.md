@@ -79,7 +79,7 @@ The visual editor detects available readings when configuring a purifier. The ma
 
 For an existing card, click **Detect missing sensors** in the editor. Existing sensor choices, custom labels, units, templates, and shortcuts are preserved. Remove or change any suggestion to override it; state refreshes do not reapply removed defaults. Sensor discovery does not overwrite a field while you are typing.
 
-The visual editor includes **Main reading** and **Statistics** sections. Choose a sensor for the header reading, then use **Add statistic** to add further readings. Each statistic has an editable label and unit, ordering buttons, and a remove button. Sensor inputs offer suggestions from HA; you can also type an entity ID. See the [editor preview](docs/editor.png).
+The visual editor includes **Main reading** and **Statistics** sections. Choose a sensor for the header reading, then use **Add statistic** to add further readings. Each statistic has an editable label, unit, and icon, ordering buttons, and a remove button. **Use text label** restores the visible label. Sensor inputs offer suggestions from HA; you can also type an entity ID. See the [editor preview](docs/editor.png).
 
 Existing templates, fan attributes, and shortcuts are retained when editing labels, units, or appearance. Choosing a new sensor replaces that row's attribute source. Advanced templates and shortcut actions remain configurable in YAML.
 
@@ -102,7 +102,19 @@ Leaving the main reading source empty shows fan speed when the fan exposes a mea
 
 Both `aqi` and each statistic accept `entity_id`, `attribute`, and `unit`. Without `entity_id`, an attribute is read from the fan. Combining them reads an attribute of the specified entity. Nested attribute paths are supported. Units default to the source sensor's unit where available. Missing, unknown, and unavailable readings show `—`; real zero values remain zero.
 
-Statistics additionally accept `subtitle` and `value_template`. Templates run through HA's template API and receive `value`:
+Statistics additionally accept `subtitle`, `icon`, and `value_template`. Temperature, humidity, filter remaining, and RPM use automatic icons; PM2.5 and PM10 retain their distinct short labels. Unknown readings keep their text. Labels remain available as tooltips and accessible names, and clicking a statistic still opens its entity details. Set `icon: mdi:thermometer` to override the icon or `icon: ''` to show text. Omit `icon` for automatic selection.
+
+```yaml
+stats:
+  - entity_id: sensor.purifier_temperature
+    subtitle: Temperature
+    icon: mdi:thermometer
+  - entity_id: sensor.purifier_humidity
+    subtitle: Humidity
+    icon: mdi:water-percent
+```
+
+Templates run through HA's template API and receive `value`:
 
 ```yaml
 stats:

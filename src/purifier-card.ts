@@ -11,7 +11,7 @@ import registerTemplates from 'ha-template';
 import styles from './styles.css';
 import localize from './localize';
 import buildConfig from './config';
-import { fanSpeedSource } from './discovery';
+import { fanSpeedSource, statisticIcon } from './discovery';
 import {
   prepareActions,
   readValue,
@@ -286,9 +286,16 @@ export class PurifierCard extends LitElement {
         const raw = readValue(this.hass.states, stat, this.config.entity);
         const valid = raw !== undefined && raw !== null && raw !== '';
         const value = valid ? String(raw) : '—';
+        const icon = statisticIcon(this.hass.states, stat);
+        const label =
+          stat.subtitle ||
+          stat.attribute ||
+          this.hass.states[stat.entity_id ?? '']?.attributes.friendly_name ||
+          stat.entity_id;
         return html`<button
           type="button"
           class="stats-block"
+          title=${label ?? ''}
           @click=${() => this.moreInfo(stat.entity_id)}
         >
           <span class="stats-reading"
@@ -297,9 +304,16 @@ export class PurifierCard extends LitElement {
             ><span class="stats-unit"
               >${stat.unit ?? this.hass.states[stat.entity_id ?? '']?.attributes.unit_of_measurement ?? ''}</span
             ></span
-          ><span class="stats-subtitle"
-            >${stat.subtitle ?? stat.attribute ?? stat.entity_id}</span
-          >
+          >${
+            icon
+              ? html`<ha-icon
+                    class="stats-icon"
+                    .icon=${icon}
+                    aria-hidden="true"
+                  ></ha-icon
+                  ><span class="sr-only">${label}</span>`
+              : html`<span class="stats-subtitle">${label}</span>`
+          }
         </button>`;
       })}
     </div>`;

@@ -262,6 +262,182 @@ test('both user configurations use a compact header without purifier imagery', a
   }
 });
 
+test('statistics use recognizable icons while keeping PM labels, tooltips and accessible readings', async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    window.updateEntity('sensor.room_temperature', 24.4, {
+      device_class: 'temperature',
+      unit_of_measurement: '°C',
+    });
+    window.updateEntity('sensor.room_humidity', 0, {
+      device_class: 'humidity',
+      unit_of_measurement: '%',
+    });
+    window.updateEntity(
+      'sensor.zhimi_airp_vb4_filter_life_remaining',
+      'unavailable',
+    );
+    window.cards[0].setConfig({
+      entity: 'fan.zhimi_airp_vb4',
+      stats: [
+        { entity_id: 'sensor.room_temperature', subtitle: 'Room temperature' },
+        { entity_id: 'sensor.room_humidity', subtitle: 'Humidity' },
+        {
+          entity_id: 'sensor.zhimi_airp_vb4_filter_life_remaining',
+          subtitle: 'Filter remaining',
+          unit: '%',
+        },
+        { entity_id: 'sensor.zhimi_airp_vb4_pm2_5', subtitle: 'PM 2.5' },
+        { entity_id: 'sensor.zhimi_airp_vb4_pm10', subtitle: 'PM 10' },
+      ],
+    });
+    window.moreInfo = [];
+    window.cards[0].addEventListener('hass-more-info', (event) =>
+      window.moreInfo.push(event.detail.entityId),
+    );
+  });
+  const card = page.locator('xiaomi-purifier-card').first();
+  const stats = card.locator('.stats-block');
+  expect(
+    await stats
+      .nth(0)
+      .locator('ha-icon')
+      .evaluate((icon) => icon.icon),
+  ).toBe('mdi:thermometer');
+  expect(
+    await stats
+      .nth(1)
+      .locator('ha-icon')
+      .evaluate((icon) => icon.icon),
+  ).toBe('mdi:water-percent');
+  expect(
+    await stats
+      .nth(2)
+      .locator('ha-icon')
+      .evaluate((icon) => icon.icon),
+  ).toBe('mdi:air-filter');
+  await expect(stats.nth(0).locator('.stats-subtitle')).toHaveCount(0);
+  await expect(stats.nth(0)).toHaveAttribute('title', 'Room temperature');
+  await expect(stats.nth(0)).toHaveAccessibleName('24.4 °C Room temperature');
+  await expect(stats.nth(0).locator('ha-icon')).toHaveAttribute(
+    'aria-hidden',
+    'true',
+  );
+  await expect(stats.nth(1)).toHaveAccessibleName('0 % Humidity');
+  await expect(stats.nth(2)).toHaveAccessibleName('— % Filter remaining');
+  await expect(stats.nth(3).locator('.stats-subtitle')).toHaveText('PM 2.5');
+  await expect(stats.nth(4).locator('.stats-subtitle')).toHaveText('PM 10');
+  await stats.nth(0).focus();
+  await page.keyboard.press('Enter');
+  expect(await page.evaluate(() => window.moreInfo)).toEqual([
+    'sensor.room_temperature',
+  ]);
+});
+
+test('explicit statistic icons and text overrides work for existing configurations', async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    window.cards[0].setConfig({
+      ...window.configs[0],
+      stats: [
+        { attribute: 'temperature', icon: '', subtitle: 'Temperature' },
+        {
+          attribute: 'humidity',
+          icon: 'mdi:water',
+          subtitle: 'Custom humidity',
+        },
+        { attribute: 'unrecognized', subtitle: 'Custom reading' },
+      ],
+    });
+    window.updateEntity('fan.zhimi_airp_vb4', 'on', {
+      ...window.hass.states['fan.zhimi_airp_vb4'].attributes,
+      temperature: 24,
+      humidity: 50,
+      unrecognized: 7,
+    });
+  });
+  const stats = page
+    .locator('xiaomi-purifier-card')
+    .first()
+    .locator('.stats-block');
+  await expect(stats.nth(0).locator('ha-icon')).toHaveCount(0);
+  await expect(stats.nth(0).locator('.stats-subtitle')).toHaveText(
+    'Temperature',
+  );
+  expect(
+    await stats
+      .nth(1)
+      .locator('ha-icon')
+      .evaluate((icon) => icon.icon),
+  ).toBe('mdi:water');
+  await expect(stats.nth(2).locator('.stats-subtitle')).toHaveText(
+    'Custom reading',
+  );
+});
+
+test('statistic icons can be changed or replaced by text through the editor without losing templates', async ({
+  page,
+}) => {
+  await page.evaluate(async () => {
+    const editor = await customElements
+      .get('xiaomi-purifier-card')
+      .getConfigElement();
+    editor.hass = window.hass;
+    editor.setConfig({
+      entity: 'fan.zhimi_airp_vb4',
+      stats: [
+        {
+          attribute: 'temperature',
+          subtitle: 'Room temperature',
+          unit: '°C',
+          value_template: '{{ value }}',
+        },
+      ],
+    });
+    editor.addEventListener('config-changed', (event) => {
+      window.edited = event.detail.config;
+      window.cards[0].setConfig(window.edited);
+      editor.setConfig(structuredClone(window.edited));
+    });
+    document.body.append(editor);
+  });
+  const editor = page.locator('xiaomi-purifier-card-editor');
+  const icon = editor.getByRole('textbox', { name: 'Icon 1', exact: true });
+  await expect(icon).toHaveAttribute('placeholder', 'mdi:thermometer');
+  await icon.fill('mdi:home-thermometer');
+  await icon.press('Tab');
+  expect(await page.evaluate(() => window.edited.stats[0])).toMatchObject({
+    icon: 'mdi:home-thermometer',
+    value_template: '{{ value }}',
+    subtitle: 'Room temperature',
+    unit: '°C',
+  });
+  const useText = editor.getByRole('checkbox', {
+    name: 'Use text label 1',
+    exact: true,
+  });
+  await useText.check();
+  await expect(icon).toBeDisabled();
+  await expect(
+    page.locator('xiaomi-purifier-card').first().locator('.stats-subtitle'),
+  ).toHaveText('Room temperature');
+  expect(await page.evaluate(() => window.edited.stats[0].icon)).toBe('');
+  await useText.uncheck();
+  await expect(icon).toBeEnabled();
+  expect(
+    await page.evaluate(() => window.edited.stats[0].icon),
+  ).toBeUndefined();
+  expect(
+    await page
+      .locator('xiaomi-purifier-card')
+      .first()
+      .locator('.stats-icon')
+      .evaluate((icon) => icon.icon),
+  ).toBe('mdi:thermometer');
+});
+
 test('a bare compact card provides power and supported preset buttons automatically', async ({
   page,
 }) => {
@@ -566,6 +742,12 @@ test('editing and reordering statistics retains templates, attributes, and short
 });
 
 for (const field of [
+  {
+    name: 'Icon 1',
+    role: 'textbox',
+    value: 'mdi:thermometer',
+    read: (config) => config.stats[0].icon,
+  },
   {
     name: 'Reading sensor',
     role: 'combobox',

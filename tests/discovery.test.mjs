@@ -94,6 +94,7 @@ test('filter detection prefers remaining percent over remaining time on the same
   const result = detectReadings(withFilters, entries, fan, labels);
   assert.deepEqual(result.stats.at(-1), {
     entity_id: 'sensor.renamed_filter',
+    icon: 'mdi:air-filter',
     subtitle: 'Filter remaining',
     unit: '%',
   });
@@ -127,6 +128,7 @@ test('legacy filter life remaining is detected without converting it to filter u
   assert.deepEqual(detectReadings(legacy, [], fan, labels).stats, [
     {
       attribute: 'filter_life_remaining',
+      icon: 'mdi:air-filter',
       subtitle: 'Filter remaining',
       unit: '%',
     },

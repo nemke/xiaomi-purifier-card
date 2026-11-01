@@ -23,12 +23,19 @@ export interface DetectedReadings {
 }
 const normalize = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]/g, '');
+const statisticIcons: Partial<Record<ReadingKind | 'rpm', string>> = {
+  temperature: 'mdi:thermometer',
+  humidity: 'mdi:water-percent',
+  filter: 'mdi:air-filter',
+  rpm: 'mdi:fan',
+};
 const aliases: Record<ReadingKind | 'rpm', string[]> = {
   pm25: ['pm25', 'pm2p5', 'particulatematter25'],
   pm10: ['pm10', 'particulatematter10'],
   temperature: ['temperature', 'ambienttemperature'],
   humidity: ['humidity', 'relativehumidity'],
   filter: [
+    'filterlife',
     'filterliferemaining',
     'filterlifetimeremaining',
     'filterremaining',
@@ -91,6 +98,16 @@ export function fanSpeedSource(
   if (typeof attributes?.percentage === 'number')
     return { attribute: 'percentage', unit: '%' };
   return undefined;
+}
+
+/** PM labels stay distinct; measurements without a known icon keep their text. */
+export function statisticIcon(
+  states: HassEntities,
+  stat: PurifierCardStat,
+): string | undefined {
+  if (typeof stat.icon === 'string') return stat.icon;
+  const kind = readingKind(states, stat);
+  return kind ? statisticIcons[kind] : undefined;
 }
 
 export function detectReadings(
@@ -170,6 +187,7 @@ export function detectReadings(
     if (sensor)
       stats.push({
         entity_id: sensor.entity_id,
+        ...(statisticIcons[kind] ? { icon: statisticIcons[kind] } : {}),
         subtitle: labels[kind],
         unit: states[sensor.entity_id].attributes.unit_of_measurement,
       });
@@ -181,6 +199,7 @@ export function detectReadings(
       if (attribute)
         stats.push({
           attribute,
+          ...(statisticIcons[kind] ? { icon: statisticIcons[kind] } : {}),
           subtitle: labels[kind],
           unit:
             attributes?.[`${attribute}_unit`] ??
@@ -224,6 +243,7 @@ export function mergeReadings(
     !stat.attribute &&
     !stat.subtitle &&
     !stat.unit &&
+    stat.icon === undefined &&
     !stat.value_template;
   if (
     !protectedSections.has('stats') &&

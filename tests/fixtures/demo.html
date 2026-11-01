@@ -58,6 +58,9 @@
           this._icon = value;
           this.paint();
         }
+        get icon() {
+          return this._icon ?? this.getAttribute('icon');
+        }
         connectedCallback() {
           this.paint();
         }
@@ -92,11 +95,20 @@
               'Z"/>';
             if (fraction === 1)
               content = '<circle cx="12" cy="12" r="9" fill="currentColor"/>';
-          } else if (icon.includes('fan'))
+          } else if (icon.includes('thermometer'))
+            content =
+              '<path d="M9 14V5a3 3 0 0 1 6 0v9a5 5 0 1 1-6 0ZM12 7v10"/><circle cx="12" cy="18" r="1.5"/>';
+          else if (icon.includes('water'))
+            content =
+              '<path d="M12 3C9 8 5 11 5 15a7 7 0 0 0 14 0c0-4-4-7-7-12Z"/><path d="m9 17 6-6"/><circle cx="9" cy="12" r=".7"/><circle cx="15" cy="17" r=".7"/>';
+          else if (icon.includes('air-filter'))
+            content =
+              '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M7 7h10M7 12h10M7 17h10"/>';
+          else if (icon.includes('fan'))
             content =
               '<circle cx="12" cy="12" r="2"/><path d="M12 10C4 3 18 1 14 10M14 12c10-3 5 10-1 3M10 13c-2 10-11 0-1-1"/>';
           this.shadowRoot.innerHTML =
-            '<style>:host{display:inline-flex;width:24px;height:24px}svg{width:24px;height:24px}</style><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+            '<style>:host{display:inline-flex;width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px)}svg{width:100%;height:100%}</style><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
             content +
             '</svg>';
         }

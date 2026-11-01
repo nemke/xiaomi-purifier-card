@@ -1,10 +1,10 @@
-Faster sensor feedback after purifier commands.
+Icons for statistics.
 
-- Requests a fresh main reading one second after a successful command, with one follow-up ten seconds after the initial refresh completes to capture motor settling.
-- Shows Updating… during the command and first refresh; RPM remains the actual reading supplied by HA.
-- Coalesces queued refreshes when another command is sent, cancels queued work when the card is removed/reconfigured, and bounds waiting for a refresh to ten seconds.
-- Refresh failures do not turn successful device commands into errors. Normal HA sensor updates continue unchanged. No continuous polling is added.
+- Replaces standard temperature, humidity, filter-remaining, and RPM labels with thermometer, droplet, filter, and fan icons. Existing cards pick up automatic icons without configuration changes; PM2.5 and PM10 keep their distinct short labels.
+- Adds a per-statistic icon field and Use text label switch in the visual editor. YAML supports custom `icon: mdi:...` or `icon: ''` for text.
+- Preserves numeric readings/units, labels as hover tooltips and accessible names, keyboard interaction, and entity detail links. Unknown statistics keep their text label.
+- Sensor discovery includes suitable icons for renamed sensors; manual choices survive re-detection.
 
-Validation: lint, typecheck, 28 model tests, production build, and 39 Chromium browser tests covering refresh timing, cancellation, sensor updates, and failed/timed-out requests.
+Validation: lint, typecheck, 28 model tests, build, and 43 Chromium browser tests, including accessible names, custom/text overrides, editor preservation, typing during HA refreshes, and responsive layouts.
 
-Update through HACS and reload the frontend. No configuration changes are required. Actual update timing remains subject to the integration's throttling and device response.
+Update through HACS and reload the frontend. All earlier sensor-refresh behavior is retained.

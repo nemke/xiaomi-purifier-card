@@ -8,6 +8,7 @@ import styles from './editor.css';
 import {
   detectReadings,
   mergeReadings,
+  statisticIcon,
   type RegistryEntity,
 } from './discovery';
 
@@ -254,6 +255,26 @@ export class PurifierCardEditor extends LitElement {
             @change=${(event: Event) => this.changeStat(index, { unit: (event.target as HTMLInputElement).value })}
         /></label>
       </div>
+      <label class="field"
+        ><span>${this.text('stat_icon')}</span
+        ><input
+          type="text"
+          aria-label=${`${this.text('stat_icon')} ${number}`}
+          .value=${stat.icon ?? ''}
+          ?disabled=${stat.icon === ''}
+          placeholder=${this.hass ? (statisticIcon(this.hass.states, { ...stat, icon: undefined }) ?? this.text('automatic_text')) : ''}
+          @input=${() => this.typingSections.add('stats')}
+          @change=${(event: Event) => this.changeStat(index, { icon: (event.target as HTMLInputElement).value.trim() || undefined })}
+      /></label>
+      <label class="option"
+        ><input
+          type="checkbox"
+          aria-label=${`${this.text('stat_text')} ${number}`}
+          .checked=${stat.icon === ''}
+          @change=${(event: Event) => this.changeStat(index, { icon: (event.target as HTMLInputElement).checked ? '' : undefined })}
+        />${this.text('stat_text')}</label
+      >
+      <p class="hint">${this.text('stat_icon_help')}</p>
       ${stat.value_template || stat.attribute ? html`<p class="hint">${this.text('advanced_preserved')}</p>` : nothing}
       <div class="row-actions">
         <button
