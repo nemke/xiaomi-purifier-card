@@ -334,8 +334,8 @@ test('statistics use recognizable icons while keeping PM labels, tooltips and ac
   );
   await expect(stats.nth(1)).toHaveAccessibleName('0 % Humidity');
   await expect(stats.nth(2)).toHaveAccessibleName('— % Filter remaining');
-  await expect(stats.nth(3).locator('.stats-subtitle')).toHaveText('PM 2.5');
-  await expect(stats.nth(4).locator('.stats-subtitle')).toHaveText('PM 10');
+  await expect(stats.nth(3).locator('.stats-subtitle')).toHaveText('PM2.5');
+  await expect(stats.nth(4).locator('.stats-subtitle')).toHaveText('PM10');
   for (const width of [1280, 375]) {
     await page.setViewportSize({ width, height: 800 });
     if (width <= 420)
@@ -365,6 +365,20 @@ test('statistics use recognizable icons while keeping PM labels, tooltips and ac
       ).toBeLessThan(2);
     }
   }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(card.locator('ha-card')).not.toHaveClass(/narrow/);
+  await page.evaluate(() => {
+    document.body.style.fontFamily = 'monospace';
+    window.updateEntity('sensor.zhimi_airp_vb4_pm2_5', 1234);
+  });
+  const labelBox = await stats.nth(3).locator('.stats-subtitle').boundingBox();
+  const valueBox = await stats.nth(3).locator('.stats-value').boundingBox();
+  expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(valueBox.x);
+  expect(
+    Math.abs(
+      labelBox.y + labelBox.height / 2 - valueBox.y - valueBox.height / 2,
+    ),
+  ).toBeLessThan(2);
   await stats.nth(0).focus();
   await page.keyboard.press('Enter');
   expect(await page.evaluate(() => window.moreInfo)).toEqual([

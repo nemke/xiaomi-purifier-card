@@ -292,6 +292,7 @@ export class PurifierCard extends LitElement {
           stat.attribute ||
           this.hass.states[stat.entity_id ?? '']?.attributes.friendly_name ||
           stat.entity_id;
+        const inlineLabel = label?.replace(/^PM\s*(2\.5|10)$/i, 'PM$1');
         return html`<button
           type="button"
           class="stats-block"
@@ -306,7 +307,10 @@ export class PurifierCard extends LitElement {
                     .icon=${icon}
                     aria-hidden="true"
                   ></ha-icon>`
-                : html`<span class="stats-subtitle">${label}</span>`
+                : html`<span
+                    class="stats-subtitle ${inlineLabel === 'PM2.5' || inlineLabel === 'PM10' ? 'particle-label' : ''}"
+                    >${inlineLabel}</span
+                  >`
             }<span class="stats-measurement"
               ><span class="stats-value"
                 >${valid && stat.value_template ? html`<ha-template .hass=${this.hass} .template=${stat.value_template} .value=${value} .variables=${{ value }}></ha-template>` : value}</span

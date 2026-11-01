@@ -231,6 +231,7 @@ ha-icon {
 .stats-value {
   min-width: 0;
   font-size: 16px;
+  line-height: 20px;
   font-variant-numeric: tabular-nums;
   color: var(--pc-primary-text-color);
 }
@@ -238,6 +239,14 @@ ha-icon {
 .stats-subtitle {
   font-size: 11px;
   line-height: 1.4;
+}
+.stats-subtitle {
+  align-self: flex-start;
+  line-height: 20px;
+}
+.particle-label {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .stats-icon {
   --mdc-icon-size: 18px;
