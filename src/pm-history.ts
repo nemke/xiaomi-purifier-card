@@ -25,7 +25,6 @@ export interface TrendPoint {
 }
 export interface TrendPath {
   line: string;
-  area: string;
 }
 
 export function trendSource(
@@ -85,6 +84,11 @@ export function trendPaths(points: TrendPoint[], now: number): TrendPath[] {
   const window = sorted.filter((point) => point.time > start);
   if (before) window.unshift({ ...before, time: start });
   if (!window.length) return [];
+  const values = window.flatMap((point) =>
+    point.value === null ? [] : [point.value],
+  );
+  // A constant hour carries no direction information and looks like a divider.
+  if (!values.length || values.every((value) => value === values[0])) return [];
   const max = Math.max(1, ...window.map((point) => point.value ?? 0));
   const x = (time: number) =>
     Math.max(0, Math.min(120, ((time - start) / HISTORY_WINDOW) * 120));
@@ -115,7 +119,7 @@ export function trendPaths(points: TrendPoint[], now: number): TrendPath[] {
       let line = `M${coord(x(reduced[0].time))},${coord(y(reduced[0].value!))}`;
       for (const point of reduced.slice(1))
         line += `H${coord(x(point.time))}V${coord(y(point.value!))}`;
-      paths.push({ line, area: `${line}V34H${coord(x(reduced[0].time))}Z` });
+      paths.push({ line });
     }
     run = [];
   };

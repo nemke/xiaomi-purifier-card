@@ -10,7 +10,7 @@ See the [v0.1.12 UX review and previews](docs/ux-review-2026-11-01.md) for the c
 
 The picker, editor and HACS display name are now **Breeze Purifier Card**. New configurations use `custom:breeze-purifier-card`; existing `custom:xiaomi-purifier-card` YAML continues to work through a legacy alias. The GitHub repository and `xiaomi-purifier-card.js` resource filename remain stable for existing HACS installations. Load the resource once; no resource migration is required.
 
-Version **0.1.13** adds an optional [HA-backed shutdown timer](docs/TIMER.md), filter-maintenance warnings, non-Xiaomi compatibility coverage, and one-hour PM background graphs.
+Version **0.1.14** makes [one-hour PM trends](docs/PM_TRENDS.md) quieter: a thin neutral line within the existing tile padding, no shaded fill, and no graph for a flat hour. The shutdown timer, filter-maintenance warnings, and non-Xiaomi support introduced in v0.1.13 remain available.
 
 ## Features
 

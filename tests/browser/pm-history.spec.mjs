@@ -143,7 +143,7 @@ test('stream updates redraw histories, preserve gaps and leave entity-details cl
     });
   }, pm25);
   await expect(
-    current.locator('.stat-trend').first().locator('.trend-area'),
+    current.locator('.stat-trend').first().locator('.trend-line'),
   ).toHaveCount(2);
   await current.locator('.stats-block').first().click();
   expect(await page.evaluate(() => window.moreInfo)).toEqual([pm25]);
@@ -200,7 +200,7 @@ test('unknown owners create gaps in attribute histories and request full attribu
     });
   });
   await expect(card(page).locator('.stat-trend')).toHaveCount(1);
-  await expect(card(page).locator('.trend-area')).toHaveCount(2);
+  await expect(card(page).locator('.trend-line')).toHaveCount(2);
   expect(await page.evaluate(() => window.attributeRequest)).toMatchObject({
     entity_ids: ['fan.zhimi_airp_vb4'],
     no_attributes: false,
@@ -326,4 +326,76 @@ test('phone-sized tiles keep their size, tab targets and readings with a zero-ba
   expect(
     (await current.locator('.stats-block').first().boundingBox()).height,
   ).toBe(height);
+});
+
+test('flat PM hours leave unhighlighted tiles while changing series keep a small neutral line', async ({
+  page,
+}) => {
+  const current = card(page);
+  await expect(current.locator('.stat-trend')).toHaveCount(2);
+  await expect(current.locator('.trend-area')).toHaveCount(0);
+  const originalHeight = (await current.boundingBox()).height;
+  expect(
+    (await current.locator('.stat-trend').first().boundingBox()).height,
+  ).toBe(8);
+  await page.evaluate(
+    ({ pm25, pm10 }) => {
+      const now = Date.now() / 1000;
+      window.historyCallbacks[0]({
+        states: {
+          [pm25]: [
+            { s: '1', lu: now - 3600 },
+            { s: '1', lu: now - 2400 },
+            { s: '1', lu: now - 600 },
+          ],
+          [pm10]: [
+            { s: '2', lu: now - 3600 },
+            { s: '3', lu: now - 600 },
+          ],
+        },
+      });
+    },
+    { pm25, pm10 },
+  );
+  // Replace the old recorded hour, rather than merging a flat update into its earlier spike.
+  await page.evaluate(() =>
+    window.cards[0].setConfig({ ...window.trendConfig, show_pm_trends: false }),
+  );
+  await expect(current.locator('.stat-trend')).toHaveCount(0);
+  await page.evaluate(
+    ({ pm25, pm10 }) => {
+      window.hass.connection = {
+        subscribeMessage: async (callback) => {
+          const now = Date.now() / 1000;
+          callback({
+            states: {
+              [pm25]: [
+                { s: '1', lu: now - 3600 },
+                { s: '1', lu: now - 600 },
+              ],
+              [pm10]: [
+                { s: '2', lu: now - 3600 },
+                { s: '3', lu: now - 600 },
+              ],
+            },
+          });
+          return () => {};
+        },
+      };
+      window.cards[0].hass = { ...window.hass };
+      window.cards[0].setConfig(window.trendConfig);
+    },
+    { pm25, pm10 },
+  );
+  await expect(
+    current.locator('.stats-block').first().locator('.stat-trend'),
+  ).toHaveCount(0);
+  await expect(
+    current.locator('.stats-block').nth(1).locator('.stat-trend'),
+  ).toHaveCount(1);
+  await expect(current.locator('.stats-block').first()).toHaveAttribute(
+    'title',
+    'PM 2.5',
+  );
+  expect((await current.boundingBox()).height).toBe(originalHeight);
 });

@@ -84,8 +84,13 @@ test('graph domain is exactly one hour, zero-based, and clips earlier data witho
   );
   assert.equal(paths.length, 1);
   assert.match(paths[0].line, /^M0,4H60V19/);
-  assert.match(paths[0].area, /V34H0Z$/);
-  const partial = trendPaths([{ time: now - 1800000, value: 5 }], now);
+  const partial = trendPaths(
+    [
+      { time: now - 1800000, value: 5 },
+      { time: now - 900000, value: 10 },
+    ],
+    now,
+  );
   assert.match(partial[0].line, /^M60,/);
   assert.deepEqual(trendPaths([], now), []);
   assert.deepEqual(trendPaths([{ time: now + 1000, value: 10 }], now), []);
@@ -233,4 +238,25 @@ test('permission failures quietly return no history and never start a retry loop
   assert.deepEqual(result, {});
   assert.equal(calls, 1);
   stop();
+});
+
+test('flat hours stay plain, including zero and when an old spike leaves the window', () => {
+  for (const value of [0, 1, 100]) {
+    assert.deepEqual(
+      trendPaths(
+        [
+          { time: now - HISTORY_WINDOW, value },
+          { time: now - 1000, value },
+        ],
+        now,
+      ),
+      [],
+    );
+  }
+  const points = [
+    { time: now - HISTORY_WINDOW - 1000, value: 20 },
+    { time: now - HISTORY_WINDOW + 1000, value: 1 },
+  ];
+  assert.ok(trendPaths(points, now).length);
+  assert.deepEqual(trendPaths(points, now + 2000), []);
 });

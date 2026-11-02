@@ -762,7 +762,7 @@ export class PurifierCard extends LitElement {
           title=${`${label ?? ''}${paths.length ? ' · ' + (localize('common.last_hour') ?? 'Last hour') : ''}`}
           @click=${() => this.moreInfo(stat.entity_id)}
         >
-          ${paths.length ? svg`<svg class="stat-trend" viewBox="0 0 120 36" preserveAspectRatio="none" aria-hidden="true" focusable="false">${paths.map((path) => svg`<path class="trend-area" d=${path.area}></path><path class="trend-line" d=${path.line} vector-effect="non-scaling-stroke"></path>`)}</svg>` : nothing}
+          ${paths.length ? svg`<svg class="stat-trend" viewBox="0 0 120 36" preserveAspectRatio="none" aria-hidden="true" focusable="false">${paths.map((path) => svg`<path class="trend-line" d=${path.line} vector-effect="non-scaling-stroke"></path>`)}</svg>` : nothing}
           <span class="stats-reading"
             >${
               icon

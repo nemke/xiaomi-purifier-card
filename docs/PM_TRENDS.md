@@ -1,8 +1,8 @@
-# One-hour PM backgrounds — v0.1.13
+# One-hour PM trends — v0.1.14
 
-PM2.5 and PM10 statistics can show a faint line and filled history area behind the existing value. The window is always one hour. Tiles keep their current dimensions, foreground labels and units, keyboard interaction, and entity-detail links. A tooltip identifies **Last hour** when a graph is present.
+PM2.5 and PM10 statistics can show a thin neutral history line within the existing bottom padding. There is no shaded fill, and a flat hour leaves the tile plain. The line is limited to 8px high. The window is always one hour. Tiles keep their current dimensions, foreground labels and units, keyboard interaction, and entity-detail links. A tooltip identifies **Last hour** when a graph is present.
 
-[Desktop](previews/pm-trends/desktop.png) · [Phone](previews/pm-trends/phone.png) · [Missing-data gap](previews/pm-trends/gap-phone.png) · [Light theme](previews/pm-trends/light.png)
+[Desktop](previews/quiet-pm-trends/desktop.png) · [Phone](previews/quiet-pm-trends/phone.png) · [Flat hour](previews/quiet-pm-trends/flat-3c.png) · [Light theme](previews/quiet-pm-trends/light.png)
 
 Previews use simulated history and lightweight HA icon/card stand-ins.
 
@@ -10,7 +10,7 @@ Previews use simulated history and lightweight HA icon/card stand-ins.
 
 The oldest state is on the left and the newest on the right. The vertical scale starts at zero and fits the largest value within that tile's hour. Each tile has its own scale, so compare its pattern rather than comparing graph heights between PM2.5 and PM10.
 
-Step paths show recorded HA state changes. A known constant state stays flat until it changes; the graph does not imply additional measurements. Unknown, unavailable, blank, invalid, and negative states break the line and fill. They never become zero. History beginning partway through the hour leaves the earlier area empty. Real zero values remain valid.
+Step paths show recorded HA state changes. A known constant state stays flat until it changes; an entirely flat hour is hidden, including when an earlier spike rolls out of the window. The graph does not imply additional measurements. Unknown, unavailable, blank, invalid, and negative states break the line. They never become zero. History beginning partway through the hour leaves the earlier area empty. Real zero values remain valid.
 
 The current number continues to come from the configured HA source. Graphs are decorative and hidden from screen readers; labels and numeric readings retain their accessible names. High-contrast forced-color mode hides the backgrounds.
 
@@ -36,4 +36,4 @@ Hidden/offscreen cards and removed cards release subscriptions. Reconnection sta
 
 ## Validation
 
-The card regression suite contains 64 unit tests and 103 Chromium browser tests, including window clipping, zero baseline, gaps, dense peaks, attributes, sharing, permissions, hidden views, reconnects, phone layout, identical heights with graphs on/off, and unchanged entity-detail clicks. The existing 15 shutdown-blueprint simulations remain separate. Real HA history availability depends on Recorder inclusion and user permissions.
+The card regression suite contains 65 unit tests and 104 Chromium browser tests, including window clipping, zero baseline, gaps, dense peaks, attributes, sharing, permissions, hidden views, reconnects, phone layout, identical heights with graphs on/off, and unchanged entity-detail clicks. The existing 15 shutdown-blueprint simulations remain separate. Real HA history availability depends on Recorder inclusion and user permissions.
