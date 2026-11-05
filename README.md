@@ -43,11 +43,12 @@ The 4 Pro and 3C examples are covered by automated tests with **simulated HA sta
 
 ## Install with HACS
 
-1. Open **HACS → ⋮ → Custom repositories**.
-2. Add `https://github.com/nemke/xiaomi-purifier-card`, category **Dashboard**.
-3. Find **Breeze Purifier Card** and download the latest release.
-4. Reload the frontend. Check that a JavaScript module resource exists at `/hacsfiles/xiaomi-purifier-card/xiaomi-purifier-card.js`. Add it manually if your resources are managed in YAML.
-5. Add a card using `type: custom:breeze-purifier-card`. Existing `custom:xiaomi-purifier-card` configurations remain supported.
+Breeze is included in the [HACS default catalog](https://github.com/hacs/default/pull/13032).
+
+1. Open **HACS** and search for **Breeze Purifier Card**.
+2. Download the latest release.
+3. Reload the frontend. Check that a JavaScript module resource exists at `/hacsfiles/xiaomi-purifier-card/xiaomi-purifier-card.js`. Add it manually if your resources are managed in YAML.
+4. Add **Breeze Purifier Card** from the dashboard card picker, or use `type: custom:breeze-purifier-card` in YAML. Existing `custom:xiaomi-purifier-card` configurations remain supported.
 
 ```yaml
 type: custom:breeze-purifier-card
@@ -63,6 +64,14 @@ shortcuts:
 ```
 
 HACS installs the compiled JavaScript. It does not require Node.js, npm, or TypeScript on your HA host.
+
+### Custom repository fallback
+
+If Breeze is not available in HACS search, you can add it manually:
+
+1. Open **HACS → ⋮ → Custom repositories**.
+2. Add `https://github.com/nemke/xiaomi-purifier-card`, category **Dashboard**.
+3. Download **Breeze Purifier Card** and continue with step 3 above.
 
 For manual installation, download `xiaomi-purifier-card.js` from a release, copy it to `<config>/www/`, and register `/local/xiaomi-purifier-card.js` as a JavaScript module.
 
