@@ -224,7 +224,7 @@ test('built-in modes can be hidden and reordered independently of the status lab
       .evaluateAll((items) =>
         items.map((item) => item.getAttribute('aria-label')),
       ),
-  ).toEqual(['Silent', 'Auto', 'Favorite']);
+  ).toEqual(['Silent', 'Auto', 'Favorite', 'Max']);
   await form
     .getByRole('button', { name: 'Use all modes automatically', exact: true })
     .click();
@@ -289,7 +289,8 @@ test('automatic toolbars expose every shortcut through a dropdown on phones', as
     exact: true,
   });
   await expect(menu).toBeVisible();
-  await expect(menu.locator('option')).toHaveCount(7);
+  await expect(menu.locator('option')).toHaveCount(8);
+  await expect(menu.locator('option').last()).toHaveText('Max');
   await page.evaluate(() =>
     window.updateEntity('fan.mi_air_purifier_3c', 'on', {
       ...window.hass.states['fan.mi_air_purifier_3c'].attributes,

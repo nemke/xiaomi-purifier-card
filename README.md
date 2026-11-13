@@ -17,6 +17,7 @@ Version **0.1.14** makes [one-hour PM trends](docs/PM_TRENDS.md) quieter: a thin
 - Compact header with purifier name, state, and a live read-only fan-speed reading.
 - Automatic PM2.5, PM10, temperature, humidity, and filter-remaining discovery from the selected purifier’s HA device.
 - A simple power/preset strip and responsive statistics; no purifier image or decorative dial.
+- A default Max action that selects an exposed manual preset and requests the fan's native maximum speed.
 - Separate sensor and number entities update without reloading the dashboard.
 - Optional one-hour PM2.5/PM10 background graphs preserve the compact statistics layout.
 - Shortcuts for native percentages, discrete levels, RPM, or custom action sequences.
@@ -118,6 +119,7 @@ Existing templates, fan attributes, and shortcuts are retained when editing labe
 | `show_state`       | `true`               | Show state; unavailability is always shown                 |
 | `show_preset_mode` | `true`               | Show the current preset in the status text                 |
 | `show_toolbar`     | `true`               | Show power and shortcuts                                   |
+| `show_max_speed`   | `true`               | Add Max when the fan supports percentage speed control     |
 | `show_pm_trends`   | `true`               | One-hour history backgrounds for eligible PM statistics    |
 | `compact_view`     | `false`              | Use denser spacing                                         |
 | `aqi`              | `{}`                 | Main reading source                                        |
@@ -181,6 +183,27 @@ Omit `filter_warning` to use recognized statistics automatically, or set `filter
 Use **Modes and shortcuts** to hide or reorder built-in presets and edit custom actions. Automatic layout uses buttons when they fit and a dropdown when space is limited. Choose **Buttons** to keep a horizontally scrollable strip, or **Dropdown** to always use the action menu. `show_preset_mode` controls only the status text; `preset_modes` controls which built-in actions appear. An explicit preset list does not remove custom multi-action shortcuts.
 
 When the fan is off, a shorthand preset action turns it on in that preset. Explicit `actions` sequences execute exactly as configured. During a command, the card shows **Sending**, then **Waiting for device** until HA reports the requested settings. After 15 seconds it shows an unconfirmed notice. Active highlighting follows reported state, and a later device update clears the notice. This feedback does not increase the integration's polling frequency.
+
+### Default Max speed action
+
+Max appears automatically when the fan advertises native percentage speed control.
+It selects an exposed manual preset (Fan, then Manual, then Favorite, if available)
+and awaits that command before requesting 100% through `fan.set_percentage`.
+For the Xiaomi 4 Pro this means Fan level 3; for the 3C it means Favorite at 2200 RPM.
+Other brands use their integration's native maximum. No RPM-to-percentage curve,
+model ID, extra helper, number entity, or YAML shortcut is required.
+
+Pressing Max again reapplies the request, including after manual speed adjustments.
+When off, the purifier is started first. The button becomes active only when HA
+reports the requested mode and speed; the measured RPM reading is never replaced
+with an estimated maximum. Auto and Silent keep their existing device behavior.
+
+Hide Max under **Modes and shortcuts → Show Max speed action**, or set
+`show_max_speed: false`. A custom shortcut named Max takes precedence over the
+default. Max is a card action, not a new purifier operating mode; the device still
+reports its native Fan/Favorite mode. Unsupported fans do not get a guessed action.
+
+See the [Max speed behavior and previews](docs/MAX_SPEED.md).
 
 The editor suggests known Favorite/Fan number targets and child-lock, buzzer, and display settings from the same device. Detection requires an unambiguous match; numeric controls must expose valid `min`, `max`, and `step`. Existing choices and intentionally empty lists are preserved. Use the detection button to append missing suggestions, or configure entities manually under **Device controls**.
 

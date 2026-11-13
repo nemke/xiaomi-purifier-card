@@ -97,6 +97,7 @@ export interface PurifierCardConfig {
   show_state: boolean;
   show_preset_mode: boolean;
   show_toolbar: boolean;
+  show_max_speed: boolean;
   show_pm_trends: boolean;
   compact_view: boolean;
   aqi: PurifierAQI;
