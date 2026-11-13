@@ -95,6 +95,8 @@
     "style_buttons": "Buttons",
     "style_dropdown": "Dropdown",
     "toolbar_style_help": "Automatic uses a dropdown when all buttons would not fit.",
+    "show_max_speed": "Show Max speed action",
+    "max_speed_help": "Adds Max when fan percentage control is supported. It selects an available manual preset and requests 100% speed.",
     "visible_modes": "Built-in modes",
     "show_mode": "Show mode",
     "move_mode_up": "Move mode up",
@@ -171,6 +173,7 @@
     "actions_array": "WARNING: 'actions' has been renamed to 'shortcuts'"
   },
   "controls": {
+    "max_speed": "Max",
     "run_shortcut": "Run shortcut",
     "choose_action": "Choose action",
     "device_controls": "Device controls",

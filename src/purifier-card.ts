@@ -8,7 +8,7 @@ import {
 } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { live } from 'lit/directives/live.js';
-import { buildToolbar } from './toolbar';
+import { buildToolbar, maxSpeedShortcut } from './toolbar';
 import { commandGoals, goalConfirmed, type CommandGoal } from './command';
 import { numberBounds } from './controls';
 import { filterStatus } from './filter';
@@ -400,6 +400,16 @@ export class PurifierCard extends LitElement {
       actions[0]?.service === 'fan.set_preset_mode'
     )
       actions[0] = { ...actions[0], service: 'fan.turn_on' };
+    else if (
+      !shortcut.actions &&
+      this.entity?.state === 'off' &&
+      actions[0]?.service === 'fan.set_percentage' &&
+      Number(actions[0].service_data?.percentage) > 0
+    )
+      actions.unshift({
+        service: 'fan.turn_on',
+        target: { entity_id: this.config.entity },
+      });
     void this.execute(
       actions,
       shortcut.name ?? shortcut.preset_mode ?? shortcut.service ?? 'Shortcut',
@@ -449,6 +459,7 @@ export class PurifierCard extends LitElement {
       this.config,
       this.entity?.attributes.preset_modes ?? [],
       (mode) => localize(`preset_mode.${mode.toLowerCase()}`) ?? mode,
+      maxSpeedShortcut(this.entity, this.text('max_speed')),
     );
   }
   private text(key: string) {

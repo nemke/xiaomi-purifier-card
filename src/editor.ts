@@ -706,6 +706,15 @@ export class PurifierCardEditor extends LitElement {
         </select></label
       >
       <p class="hint">${this.text('toolbar_style_help')}</p>
+      <label class="option">
+        <input
+          type="checkbox"
+          aria-label=${this.text('show_max_speed')}
+          .checked=${this.config.show_max_speed ?? true}
+          @change=${(event: Event) => this.change('show_max_speed', (event.target as HTMLInputElement).checked)}
+        />${this.text('show_max_speed')}
+      </label>
+      <p class="hint">${this.text('max_speed_help')}</p>
       <p>${this.text('visible_modes')}</p>
       ${modes.map((mode) => {
         const index = visible.indexOf(mode);

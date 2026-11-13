@@ -1,5 +1,33 @@
 import { shortcutActions } from './model';
+import type { HassEntity } from 'home-assistant-js-websocket';
 import type { PurifierCardConfig, PurifierCardShortcut } from './types';
+
+/** Request the native maximum, rather than guessing RPM from a model name. */
+export function maxSpeedShortcut(
+  entity: HassEntity | undefined,
+  label = 'Max',
+): PurifierCardShortcut | undefined {
+  if (
+    !entity ||
+    ['unknown', 'unavailable'].includes(entity.state) ||
+    !(Number(entity.attributes.supported_features) & 1)
+  )
+    return undefined;
+  const modes = (
+    Number(entity.attributes.supported_features) & 8
+      ? (entity.attributes.preset_modes ?? [])
+      : []
+  ) as string[];
+  const manual = ['fan', 'manual', 'favorite']
+    .map((name) => modes.find((mode) => mode.toLowerCase() === name))
+    .find(Boolean);
+  return {
+    name: label,
+    icon: 'mdi:fan-plus',
+    ...(manual ? { preset_mode: manual } : {}),
+    percentage: 100,
+  };
+}
 
 export function presetShortcut(
   mode: string,
@@ -23,8 +51,21 @@ export function buildToolbar(
   config: PurifierCardConfig,
   modes: string[],
   label: (mode: string) => string = (mode) => mode,
+  maxSpeed?: PurifierCardShortcut,
 ) {
   const shortcuts = [...config.shortcuts];
+  const withMax = (items: PurifierCardShortcut[]) =>
+    maxSpeed &&
+    config.show_max_speed !== false &&
+    !items.some(
+      (item) =>
+        item.name &&
+        ['max', maxSpeed.name?.toLowerCase()].includes(
+          item.name.trim().toLowerCase(),
+        ),
+    )
+      ? [...items, maxSpeed]
+      : items;
   const represents = (shortcut: PurifierCardShortcut, mode: string) =>
     shortcutActions(shortcut, config.entity).some(
       (action) =>
@@ -39,7 +80,7 @@ export function buildToolbar(
     for (const mode of modes)
       if (!shortcuts.some((shortcut) => represents(shortcut, mode)))
         shortcuts.push(presetShortcut(mode, label(mode)));
-    return shortcuts;
+    return withMax(shortcuts);
   }
   const used = new Set<number>();
   const result: PurifierCardShortcut[] = [];
@@ -58,7 +99,7 @@ export function buildToolbar(
       index >= 0 ? shortcuts[index] : presetShortcut(mode, label(mode)),
     );
   }
-  return [
+  return withMax([
     ...result,
     ...shortcuts.filter(
       (shortcut, i) =>
@@ -68,5 +109,5 @@ export function buildToolbar(
           modes.some((mode) => represents(shortcut, mode))
         ),
     ),
-  ];
+  ]);
 }

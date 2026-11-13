@@ -66,11 +66,9 @@ export default function buildConfig(
     }
   }
 
-  if (
-    config.show_pm_trends !== undefined &&
-    typeof config.show_pm_trends !== 'boolean'
-  )
-    throw new Error('show_pm_trends must be a boolean');
+  for (const key of ['show_pm_trends', 'show_max_speed'] as const)
+    if (config[key] !== undefined && typeof config[key] !== 'boolean')
+      throw new Error(`${key} must be a boolean`);
 
   const warning = config.filter_warning;
   if (warning !== undefined) {
@@ -114,6 +112,7 @@ export default function buildConfig(
     show_state: config.show_state ?? true,
     show_preset_mode: config.show_preset_mode ?? true,
     show_toolbar: config.show_toolbar ?? true,
+    show_max_speed: config.show_max_speed ?? true,
     show_pm_trends: config.show_pm_trends ?? true,
     compact_view: config.compact_view ?? false,
     aqi: config.aqi ?? {},
