@@ -488,40 +488,49 @@ export class PurifierCard extends LitElement {
     const dropdown =
       this.config.toolbar_style === 'dropdown' ||
       (this.config.toolbar_style === 'auto' && overflow);
-    return html`<div class="toolbar">
-        <button
-          type="button"
-          class="control-button power ${this.entity?.state === 'on' ? 'active' : ''} ${this.request?.id === 'power' && !this.request.expired ? 'requested' : ''}"
-          aria-label=${localize('common.toggle_power') ?? 'Toggle power'}
-          aria-pressed=${String(this.entity?.state === 'on')}
-          title=${localize(this.entity?.state === 'on' ? 'common.turn_off' : 'common.turn_on')}
-          ?disabled=${disabled}
-          @click=${() => void this.execute([{ service: this.entity?.state === 'on' ? 'fan.turn_off' : 'fan.turn_on' }], localize(this.entity?.state === 'on' ? 'common.turn_off' : 'common.turn_on') ?? 'Power', 'power')}
-        >
-          <ha-icon icon="mdi:power"></ha-icon>
-        </button>
-        ${
-          dropdown
-            ? html`<select
-                class="shortcut-menu"
-                aria-label=${this.text('run_shortcut')}
-                .value=${live('')}
-                ?disabled=${disabled}
-                @change=${(event: Event) => {
+    // Balance overflowing button rows, keeping a 56px-wide touch target.
+    // The toolbar has 24px of outer margin, 8px padding and 4px gaps.
+    const buttonCount = shortcuts.length + 1 + Number(hasControls);
+    const capacity = Math.max(1, Math.floor((this.width - 28) / 60));
+    const grid = !dropdown && this.width > 0 && buttonCount > capacity;
+    const columns = Math.ceil(buttonCount / Math.ceil(buttonCount / capacity));
+    return html`<div
+      class=${`toolbar${grid ? ' button-grid' : ''}`}
+      style=${grid ? `--toolbar-columns:${columns}` : ''}
+    >
+      <button
+        type="button"
+        class="control-button power ${this.entity?.state === 'on' ? 'active' : ''} ${this.request?.id === 'power' && !this.request.expired ? 'requested' : ''}"
+        aria-label=${localize('common.toggle_power') ?? 'Toggle power'}
+        aria-pressed=${String(this.entity?.state === 'on')}
+        title=${localize(this.entity?.state === 'on' ? 'common.turn_off' : 'common.turn_on')}
+        ?disabled=${disabled}
+        @click=${() => void this.execute([{ service: this.entity?.state === 'on' ? 'fan.turn_off' : 'fan.turn_on' }], localize(this.entity?.state === 'on' ? 'common.turn_off' : 'common.turn_on') ?? 'Power', 'power')}
+      >
+        <ha-icon icon="mdi:power"></ha-icon>
+      </button>
+      ${
+        dropdown
+          ? html`<select
+              class="shortcut-menu"
+              aria-label=${this.text('run_shortcut')}
+              .value=${live('')}
+              ?disabled=${disabled}
+              @change=${(event: Event) => {
                   const select = event.target as HTMLSelectElement;
                   const index = Number(select.value);
                   if (shortcuts[index])
                     this.runShortcut(shortcuts[index], index);
                   select.value = '';
                 }}
-              >
-                <option value="" disabled selected>
-                  ${this.text('choose_action')}
-                </option>
-                ${shortcuts.map((shortcut, index) => html`<option .value=${String(index)}>${shortcut.name ?? shortcut.preset_mode ?? shortcut.service ?? 'Shortcut'}${shortcutActive(shortcut, this.hass.states, this.config.entity) ? ' ✓' : ''}</option>`)}
-              </select>`
-            : html`<div class="shortcuts">
-                ${shortcuts.map((shortcut, index) => {
+            >
+              <option value="" disabled selected>
+                ${this.text('choose_action')}
+              </option>
+              ${shortcuts.map((shortcut, index) => html`<option .value=${String(index)}>${shortcut.name ?? shortcut.preset_mode ?? shortcut.service ?? 'Shortcut'}${shortcutActive(shortcut, this.hass.states, this.config.entity) ? ' ✓' : ''}</option>`)}
+            </select>`
+          : html`<div class="shortcuts">
+              ${shortcuts.map((shortcut, index) => {
                   const active = shortcutActive(
                     shortcut,
                     this.hass.states,
@@ -551,25 +560,24 @@ export class PurifierCard extends LitElement {
                     >
                   </button>`;
                 })}
-              </div>`
-        }
-        ${
-          hasControls
-            ? html`<button
-                type="button"
-                class="control-button controls-toggle"
-                aria-label=${this.text('device_controls')}
-                aria-expanded=${String(this.controlsExpanded)}
-                @click=${() => {
+            </div>`
+      }
+      ${
+        hasControls
+          ? html`<button
+              type="button"
+              class="control-button controls-toggle"
+              aria-label=${this.text('device_controls')}
+              aria-expanded=${String(this.controlsExpanded)}
+              @click=${() => {
                   this.controlsExpanded = !this.controlsExpanded;
                 }}
-              >
-                <ha-icon icon="mdi:cog-outline"></ha-icon>
-              </button>`
-            : nothing
-        }
-      </div>
-      ${!dropdown && overflow ? html`<p class="toolbar-hint">${this.text('swipe_actions')}</p>` : nothing}`;
+            >
+              <ha-icon icon="mdi:cog-outline"></ha-icon>
+            </button>`
+          : nothing
+      }
+    </div>`;
   }
   private renderNumberControl(
     control: PurifierSpeedControl | PurifierDeviceControl,
