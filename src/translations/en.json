@@ -94,7 +94,7 @@
     "style_auto": "Automatic",
     "style_buttons": "Buttons",
     "style_dropdown": "Dropdown",
-    "toolbar_style_help": "Automatic uses a dropdown when all buttons would not fit.",
+    "toolbar_style_help": "Buttons wrap into rows when space is limited. Automatic uses a dropdown when all buttons would not fit.",
     "show_max_speed": "Show Max speed action",
     "max_speed_help": "Adds Max when fan percentage control is supported. It selects an available manual preset and requests 100% speed.",
     "visible_modes": "Built-in modes",

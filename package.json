@@ -1,6 +1,6 @@
 {
   "name": "breeze-purifier-card",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Compact multi-brand air purifier dashboard card for Home Assistant",
   "main": "dist/xiaomi-purifier-card.js",
   "scripts": {

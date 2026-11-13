@@ -149,14 +149,13 @@ ha-icon {
   border-radius: 16px;
   background: var(--pc-toolbar-background);
   color: var(--pc-toolbar-text-color);
-  overflow-x: auto;
-  scrollbar-width: thin;
+  overflow: hidden;
 }
 .shortcuts {
   display: flex;
   flex: 1;
   gap: 4px;
-  min-width: max-content;
+  min-width: 0;
 }
 .control-button {
   display: flex;
@@ -174,15 +173,29 @@ ha-icon {
 }
 .power {
   flex: 0 0 44px;
-  position: sticky;
-  left: 0;
-  z-index: 1;
   background: var(--pc-toolbar-background);
 }
 .control-label {
   font-size: 10px;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  text-align: center;
   line-height: 1.2;
+}
+.toolbar.button-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--toolbar-columns), minmax(0, 1fr));
+}
+.button-grid .shortcuts {
+  display: contents;
+}
+.button-grid .control-button {
+  width: 100%;
+  min-width: 0;
+}
+.button-grid .controls-toggle {
+  grid-column: -2;
 }
 .control-button.active:not(.power) {
   color: var(--text-primary-color, #fff);
@@ -324,12 +337,9 @@ ha-icon {
 }
 .controls-toggle {
   flex: 0 0 44px;
-  position: sticky;
-  right: 0;
   background: var(--pc-toolbar-background);
 }
-.command-status,
-.toolbar-hint {
+.command-status {
   padding: 0 14px 10px;
   margin: 0;
   font-size: 12px;

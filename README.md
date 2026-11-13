@@ -180,7 +180,9 @@ Omit `filter_warning` to use recognized statistics automatically, or set `filter
 
 ### Modes and device controls
 
-Use **Modes and shortcuts** to hide or reorder built-in presets and edit custom actions. Automatic layout uses buttons when they fit and a dropdown when space is limited. Choose **Buttons** to keep a horizontally scrollable strip, or **Dropdown** to always use the action menu. `show_preset_mode` controls only the status text; `preset_modes` controls which built-in actions appear. An explicit preset list does not remove custom multi-action shortcuts.
+Use **Modes and shortcuts** to hide or reorder built-in presets and edit custom actions. Automatic layout uses buttons when they fit and a dropdown when space is limited. Choose **Buttons** to keep every action visible in balanced rows on narrow cards, or **Dropdown** to always use the action menu. Power and settings remain visible without covering the mode buttons. `show_preset_mode` controls only the status text; `preset_modes` controls which built-in actions appear. An explicit preset list does not remove custom multi-action shortcuts.
+
+See the [phone and desktop Buttons previews](docs/MOBILE_BUTTONS.md).
 
 When the fan is off, a shorthand preset action turns it on in that preset. Explicit `actions` sequences execute exactly as configured. During a command, the card shows **Sending**, then **Waiting for device** until HA reports the requested settings. After 15 seconds it shows an unconfirmed notice. Active highlighting follows reported state, and a later device update clears the notice. This feedback does not increase the integration's polling frequency.
 
